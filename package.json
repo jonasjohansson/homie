@@ -1,0 +1,27 @@
+{
+	"name": "Homie",
+	"productName": "Homie",
+	"version": "1.0.0",
+	"description": "Minimal bookmark browser",
+	"license": "MIT",
+	"author": {
+		"name": "Jonas Johansson",
+		"email": "jns.johansson@gmail.com",
+		"url": "jonasjohansson.se"
+	},
+	"main": "main.js",
+	"dependencies": {
+		"electron-context-menu": "^0.12.0",
+		"electron-dl": "^1.14.0",
+		"electron-store": "^3.2.0",
+		"event-emitter-es6": "^1.1.5",
+		"favicon-url": "^0.0.5"
+	},
+	"devDependencies": {
+		"electron": "^4.1.4",
+		"electron-builder": "^20.40.2"
+	},
+	"scripts": {
+		"dist": "node build.js"
+	}
+}
