@@ -1,4 +1,4 @@
-# Browser
+# Homie
 
 ![](/docs/homie-cover-ph.jpg)
 
