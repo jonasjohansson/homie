@@ -8,7 +8,7 @@ builder
     .build({
         targets: Platform.MAC.createTarget(),
         config: {
-            appId: 'se.jonasjohansson.browser',
+            appId: 'se.jonasjohansson.homie',
 
             mac: {
                 category: 'public.app-category.social-networking',
