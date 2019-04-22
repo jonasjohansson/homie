@@ -78,7 +78,7 @@ webview {
 
 aside {
 	position: fixed;
-	border-top: 1px solid rgba(0, 0, 0, 0.1);
+	border-top: 1px solid #eee;
 	box-sizing: border-box;
 }
 
@@ -95,7 +95,7 @@ aside {
 
 .bookmark:not(.active) .icon {
 	opacity: 0.2;
-	filter: saturate(0);
+	/*filter: saturate(0);*/
 }
 
 .bookmark .url,
@@ -137,12 +137,12 @@ aside {
 /* classes */
 
 html:not(.dark-mode) aside {
-	background-color: rgba(0, 0, 0, 0.05);
+	background-color: white;
 	color: black;
 }
 
 html.dark-mode aside {
-	background-color: rgba(0, 0, 0, 0.7);
+	background-color: black;
 	color: white;
 }
 
@@ -164,6 +164,7 @@ html.portrait main {
 
 html.portrait aside {
 	width: 100%;
+	height: var(--aside-width);
 	bottom: 0;
 }
 
