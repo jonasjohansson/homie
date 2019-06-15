@@ -168,6 +168,10 @@ html.portrait aside {
 	bottom: 0;
 }
 
+html:not(.show-hidden) .is-hidden {
+	display: none;
+}
+
 webview.hidden {
 	top: -100vh;
 }

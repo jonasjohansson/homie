@@ -9,6 +9,7 @@ const appName = app.getName();
 
 function sendAction(action, arg = null) {
 	const win = BrowserWindow.getFocusedWindow();
+	if (win === null) return;
 	win.webContents.send(action, arg);
 }
 
@@ -26,6 +27,13 @@ const appMenu = [
 			lookup.openInEditor();
 		}
 	},
+	// {
+	// 	label: 'Toggle Hidden',
+	// 	accelerator: 'CommandOrControl+Shift+H',
+	// 	click() {
+	// 		sendAction('toggleHidden');
+	// 	}
+	// },
 	{ type: 'separator' },
 	{ role: 'hide' },
 	{ role: 'hideothers' },
@@ -37,28 +45,28 @@ const appMenu = [
 const bookmarkMenu = [
 	{
 		label: 'Reload',
-		accelerator: 'Cmd+R',
+		accelerator: 'CommandOrControl+R',
 		click() {
 			sendAction('reload');
 		}
 	},
 	{
 		label: 'Reload All',
-		accelerator: 'Cmd+Shift+R',
+		accelerator: 'CommandOrControl+Shift+R',
 		click() {
 			sendAction('reloadAll');
 		}
 	},
 	{
 		label: 'Back',
-		accelerator: 'Cmd+LeftArrow',
+		accelerator: 'CommandOrControl+LeftArrow',
 		click() {
 			sendAction('back');
 		}
 	},
 	{
 		label: 'Forward',
-		accelerator: 'Cmd+RightArrow',
+		accelerator: 'CommandOrControl+RightArrow',
 		click() {
 			sendAction('forward');
 		}
@@ -90,7 +98,7 @@ const helpMenu = [
 	{
 		label: 'Source Code',
 		click() {
-			shell.openExternal('https://github.com/jonasjohansson/browser');
+			shell.openExternal('https://github.com/jonasjohansson/homie');
 		}
 	},
 	{ type: 'separator' },

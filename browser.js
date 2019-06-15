@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	document.documentElement.classList.toggle('dark-mode', config.get('darkMode'));
 	document.documentElement.classList.toggle('portrait', config.get('portrait'));
+	document.documentElement.classList.toggle('show-hidden', config.get('showHidden'));
 });
 
 function createBookmark(data) {
@@ -71,6 +72,11 @@ ipcRenderer.on('reload', () => {
 ipcRenderer.on('reloadAll', () => {
 	for (let bookmark of bookmarks) bookmark.reload();
 });
+
+// ipcRenderer.on('toggleHidden', () => {
+// 	config.set('showHidden', !config.get('showHidden'));
+// 	document.documentElement.classList.toggle('show-hidden', config.get('showHidden'));
+// });
 
 ipcRenderer.on('back', () => {
 	currentBookmark.back();

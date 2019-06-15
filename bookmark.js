@@ -12,6 +12,8 @@ class Bookmark extends EventEmitter {
 
 		this.handle = document.createElement('div');
 		this.handle.classList.add('bookmark');
+		// this.handle.classList.toggle('is-muted', data.isMuted);
+		this.handle.classList.toggle('is-hidden', data.isHidden);
 
 		this.view = new WebView();
 		this.view.autosize = true;
@@ -32,6 +34,7 @@ class Bookmark extends EventEmitter {
 		/* Listeners */
 
 		this.view.addEventListener('dom-ready', () => {
+			// this.view.setAudioMuted(this.handle.classList.contains('is-hidden'));
 			this.view.setAudioMuted(this.handle.classList.contains('is-muted'));
 		});
 
@@ -69,6 +72,10 @@ class Bookmark extends EventEmitter {
 		this.handle.addEventListener('click', () => {
 			this.emit('click', this);
 		});
+
+		// this.handle.addEventListener('contextmenu', () => {
+		// 	this.emit('contextmenu', this);
+		// });
 	}
 
 	show() {

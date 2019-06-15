@@ -12,55 +12,66 @@ module.exports = new Store({
 		darkMode: false,
 		portrait: true,
 		showUnreadBadge: true,
+		showHidden: false,
 		alwaysOnTop: false,
 		bookmarks: [
 			{
-				url: 'https://messenger.com/'
+				url: 'https://messenger.com/',
+				isHidden: false
 				// isMuted: false,
 				// icon: ''
 			},
 			{
-				url: 'https://gmail.com/'
+				url: 'https://gmail.com/',
+				isHidden: false
 				// isMuted: false,
 				// icon: ''
 			},
 			{
-				url: 'https://calendar.google.com/'
+				url: 'https://calendar.google.com/',
+				isHidden: false
 				// isMuted: false,
 				// icon: ''
 			},
 			{
-				url: 'https://drive.google.com/drive/'
+				url: 'https://drive.google.com/drive/',
+				isHidden: false
 				// isMuted: false,
 				// icon: ''
 			},
 			{
-				url: 'https://docs.google.com/'
+				url: 'https://docs.google.com/',
+				isHidden: false
 				// isMuted: false,
 				// icon: ''
 			},
 			{
-				url: 'https://spreadsheets.google.com/'
+				url: 'https://spreadsheets.google.com/',
+				isHidden: false
 				// isMuted: false,
 				// icon: ''
 			},
 			{
-				url: 'https://contacts.google.com/'
+				url: 'https://contacts.google.com/',
+				isHidden: false
 				// isMuted: false,
 				// icon: ''
 			},
 			{
-				url: 'https://trello.com/'
+				url: 'https://trello.com/',
+				isHidden: false
 				// isMuted: false,
 				// icon: ''
 			},
 			{
-				url: 'https://slack.com/'
+				url: 'https://slack.com/',
+				isHidden: false
 				// isMuted: false,
 				// icon: ''
 			},
 			{
-				url: 'https://monday.com/'
+				url: 'https://monday.com/',
+				isHidden: false
 				// isMuted: false,
 				// icon: ''
 			}
