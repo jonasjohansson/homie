@@ -3,11 +3,14 @@
 const builder = require('electron-builder');
 const Platform = builder.Platform;
 
+// https://github.com/electron-userland/electron-builder#programmatic-usage
 // https://www.electron.build/configuration/dmg
 // Promise is returned
 builder
 	.build({
 		targets: Platform.MAC.createTarget(),
+		// https://github.com/electron-userland/electron-builder/issues/1313
+		// targets: Platform.WINDOWS.createTarget('portable'),
 		config: {
 			appId: 'se.jonasjohansson.homie',
 			mac: {

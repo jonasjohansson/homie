@@ -22,6 +22,6 @@
 		"electron-builder": "^20.39.0"
 	},
 	"scripts": {
-		"dist": "node build.js"
+		"dist": "node build.js -mw"
 	}
 }
