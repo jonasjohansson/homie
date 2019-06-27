@@ -553,6 +553,11 @@ ejs@^2.6.1:
   resolved "https://registry.yarnpkg.com/ejs/-/ejs-2.6.1.tgz#498ec0d495655abc6f23cd61868d926464071aa0"
   integrity sha512-0xy4A/twfrRCnkhfk8ErDi5DqdAsAqeGxht4xkCUrsvhhbQNs7E+4jV0CN7+NKIY0aHE72+XvqtBIXzD31ZbXQ==
 
+electron-about-window@^1.13.0:
+  version "1.13.0"
+  resolved "https://registry.yarnpkg.com/electron-about-window/-/electron-about-window-1.13.0.tgz#d2b44e40ff64655e10460a21185c3ba137e7cfe3"
+  integrity sha512-LhKjLUlaqIvwN3TXK+53X6iF20BBOmvj6B1Qymj9J+PocxiWL3uj4Em7CNoQtaER8ROeFQhHxS59T93EzPn3IA==
+
 electron-builder@^20.39.0:
   version "20.43.0"
   resolved "https://registry.yarnpkg.com/electron-builder/-/electron-builder-20.43.0.tgz#664fa0031bb9435c6858db859056badb0798b455"

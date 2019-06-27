@@ -3,6 +3,7 @@ const electron = require('electron');
 const path = require('path');
 const config = require('./config');
 const lookup = require('./lookup');
+const openAboutWindow = require('electron-about-window').default;
 
 const { app, BrowserWindow, shell } = electron;
 const appName = app.getName();
@@ -14,6 +15,23 @@ function sendAction(action, arg = null) {
 }
 
 const appMenu = [
+	{
+		label: 'About Homie',
+		click: () =>
+			openAboutWindow({
+				icon_path: `${__dirname}/build/icon.png`,
+				copyright: 'Copyright (c) 2019 Jonas Johansson',
+				homepage: 'https://jonasjohansson.itch.io/homie',
+				win_options: {
+					titleBarStyle: 'hidden'
+					// parent: BrowserWindow.getFocusedWindow(),
+					// modal: true,
+				},
+				// show_close_button: 'Close',
+				package_json_dir: __dirname
+			})
+	},
+	{ type: 'separator' },
 	{
 		label: 'Preferences…',
 		accelerator: 'Cmd+,',
