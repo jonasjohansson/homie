@@ -19,7 +19,7 @@ const appMenu = [
 		label: 'About Homie',
 		click: () =>
 			openAboutWindow({
-				icon_path: `${__dirname}/build/icon.png`,
+				icon_path: `${__dirname}/assets/icon.png`,
 				copyright: 'Copyright (c) 2019 Jonas Johansson',
 				homepage: 'https://jonasjohansson.itch.io/homie',
 				win_options: {
