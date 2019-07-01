@@ -59,7 +59,10 @@ const createWindow = () => {
 		// frame: false,
 		alwaysOnTop: config.get('alwaysOnTop'),
 		webPreferences: {
-			nodeIntegration: true
+			nodeIntegration: true,
+			// https://electronjs.org/docs/api/webview-tag
+			// https://electronjs.org/docs/api/browser-window
+			webviewTag: true
 		}
 	});
 
