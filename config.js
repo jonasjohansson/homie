@@ -10,7 +10,7 @@ module.exports = new Store({
 			height: 600
 		},
 		darkMode: false,
-		portrait: true,
+		// portrait: true,
 		showUnreadBadge: true,
 		showHidden: false,
 		alwaysOnTop: false,

@@ -9,9 +9,11 @@ const { app, BrowserWindow, shell } = electron;
 const appName = app.getName();
 
 function sendAction(action, arg = null) {
-	const win = BrowserWindow.getFocusedWindow();
-	if (win === null) return;
+	// setTimeout(() => {
+	const win = BrowserWindow.getAllWindows()[0];
+	// if (win === null) return;
 	win.webContents.send(action, arg);
+	// });
 }
 
 const appMenu = [
@@ -20,7 +22,7 @@ const appMenu = [
 		click: () =>
 			openAboutWindow({
 				icon_path: `${__dirname}/assets/icon.png`,
-				copyright: 'Copyright (c) 2019 Jonas Johansson',
+				copyright: `Copyright (c) ${new Date().getFullYear()} Jonas Johansson`,
 				homepage: 'https://jonasjohansson.itch.io/homie',
 				win_options: {
 					titleBarStyle: 'hidden'

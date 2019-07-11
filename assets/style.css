@@ -1,7 +1,9 @@
 :root {
 	--base: 20px;
-	--aside-width: 40px;
+	--aside-size: 36px;
+	--menu-size: 80px;
 	--font-family: system-ui, sans-serif;
+	--gray: #eee;
 }
 
 * {
@@ -36,8 +38,8 @@ button {
 menu {
 	position: fixed;
 	top: 0;
-	left: var(--aside-width);
-	width: calc(100% - var(--aside-width));
+	left: var(--aside-size);
+	width: calc(100% - var(--aside-size));
 	height: var(--base);
 	-webkit-app-region: drag;
 	z-index: 10000;
@@ -48,6 +50,23 @@ menu {
 main,
 aside {
 	float: left;
+}
+
+main {
+	top: var(--aside-size);
+	width: 100%;
+	height: calc(100% - var(--aside-size));
+}
+
+aside {
+	top: 0;
+	width: 100%;
+	height: var(--aside-size);
+	display: flex;
+	/*justify-content: flex-end;*/
+	padding-left: var(--menu-size);
+	border-bottom: 1px solid var(--gray);
+	-webkit-app-region: drag;
 }
 
 aside:after,
@@ -78,14 +97,14 @@ webview {
 
 aside {
 	position: fixed;
-	border-top: 1px solid #eee;
 	box-sizing: border-box;
 }
 
 .bookmark {
 	display: inline-block;
-	height: calc(var(--base) * 2);
-	line-height: calc(var(--base) * 2);
+	/*height: calc(var(--base) * 2);*/
+	/*line-height: calc(var(--base) * 2);*/
+	-webkit-app-region: no-drag;
 }
 
 .bookmark > * {
@@ -104,7 +123,7 @@ aside {
 }
 
 .bookmark .url {
-	width: calc(var(--aside-width) * 3);
+	width: calc(var(--aside-size) * 3);
 	padding: calc(var(--base) / 2);
 	box-sizing: border-box;
 	background-color: transparent;
@@ -112,7 +131,7 @@ aside {
 
 .bookmark .icon {
 	position: relative;
-	width: var(--aside-width);
+	width: var(--aside-size);
 	background-repeat: no-repeat;
 	background-position: center center;
 	background-size: 60%;
@@ -144,28 +163,6 @@ html:not(.dark-mode) aside {
 html.dark-mode aside {
 	background-color: black;
 	color: white;
-}
-
-html:not(.portrait) main {
-	left: var(--aside-width);
-	width: calc(100% - var(--aside-width));
-	height: 100%;
-}
-
-html:not(.portrait) aside {
-	width: var(--aside-width);
-	height: 100%;
-}
-
-html.portrait main {
-	width: 100%;
-	height: calc(100% - var(--aside-width));
-}
-
-html.portrait aside {
-	width: 100%;
-	height: var(--aside-width);
-	bottom: 0;
 }
 
 html:not(.show-hidden) .is-hidden {

@@ -55,8 +55,8 @@ const createWindow = () => {
 		height: lastWindowState.height,
 		minWidth: 400,
 		minHeight: 200,
-		// titleBarStyle: 'customButtonsOnHover',
-		// frame: false,
+		titleBarStyle: 'hiddenInset',
+		frame: false,
 		alwaysOnTop: config.get('alwaysOnTop'),
 		webPreferences: {
 			nodeIntegration: true,

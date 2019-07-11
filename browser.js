@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	showBookmark(0);
 
 	document.documentElement.classList.toggle('dark-mode', config.get('darkMode'));
-	document.documentElement.classList.toggle('portrait', config.get('portrait'));
+	// document.documentElement.classList.toggle('portrait', config.get('portrait'));
 	document.documentElement.classList.toggle('show-hidden', config.get('showHidden'));
 });
 
