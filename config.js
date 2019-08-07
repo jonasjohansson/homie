@@ -52,12 +52,6 @@ module.exports = new Store({
 				// icon: ''
 			},
 			{
-				url: 'https://contacts.google.com/',
-				isHidden: false
-				// isMuted: false,
-				// icon: ''
-			},
-			{
 				url: 'https://trello.com/',
 				isHidden: false
 				// isMuted: false,
@@ -65,12 +59,6 @@ module.exports = new Store({
 			},
 			{
 				url: 'https://slack.com/',
-				isHidden: false
-				// isMuted: false,
-				// icon: ''
-			},
-			{
-				url: 'https://monday.com/',
 				isHidden: false
 				// isMuted: false,
 				// icon: ''
