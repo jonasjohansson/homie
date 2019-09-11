@@ -11,16 +11,16 @@
 	},
 	"main": "main.js",
 	"dependencies": {
-		"electron-about-window": "^1.13.0",
-		"electron-context-menu": "^0.12.0",
+		"electron-about-window": "^1.13.1",
+		"electron-context-menu": "^0.15.0",
 		"electron-dl": "^1.14.0",
-		"electron-store": "^3.2.0",
+		"electron-store": "^5.0.0",
 		"event-emitter-es6": "^1.1.5",
 		"favicon-url": "^0.0.5"
 	},
 	"devDependencies": {
-		"electron": "^6.0.0-beta.11",
-		"electron-builder": "^20.39.0"
+		"electron": "^7.0.0-beta.4",
+		"electron-builder": "^21.2.0"
 	},
 	"scripts": {
 		"dist": "node build.js -mw"

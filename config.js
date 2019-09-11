@@ -58,6 +58,12 @@ module.exports = new Store({
 				// icon: ''
 			},
 			{
+				url: 'https://web.whatsapp.com/',
+				isHidden: false
+				// isMuted: false,
+				// icon: ''
+			},
+			{
 				url: 'https://slack.com/',
 				isHidden: false
 				// isMuted: false,

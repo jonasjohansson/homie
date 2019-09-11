@@ -13,6 +13,7 @@ class Bookmark extends EventEmitter {
 		this.handle = document.createElement('div');
 		this.handle.classList.add('bookmark');
 		// this.handle.classList.toggle('is-muted', data.isMuted);
+		this.handle.classList.toggle('is-muted', data.isHidden);
 		this.handle.classList.toggle('is-hidden', data.isHidden);
 
 		this.view = new WebView();
