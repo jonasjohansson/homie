@@ -1,28 +1,27 @@
 {
-	"name": "Homie",
-	"productName": "Homie",
-	"version": "1.0.5",
-	"description": "Minimal bookmark browser",
-	"license": "MIT",
-	"author": {
-		"name": "Jonas Johansson",
-		"email": "jns.johansson@gmail.com",
-		"url": "jonasjohansson.se"
-	},
-	"main": "main.js",
-	"dependencies": {
-		"electron-about-window": "^1.13.1",
-		"electron-context-menu": "^0.15.0",
-		"electron-dl": "^1.14.0",
-		"electron-store": "^5.0.0",
-		"event-emitter-es6": "^1.1.5",
-		"favicon-url": "^0.0.5"
-	},
-	"devDependencies": {
-		"electron": "^7.0.0-beta.4",
-		"electron-builder": "^21.2.0"
-	},
-	"scripts": {
-		"dist": "node build.js -mw"
-	}
+  "name": "homie",
+  "productName": "Homie",
+  "version": "1.0.6",
+  "description": "Minimal bookmark browser",
+  "license": "MIT",
+  "author": {
+    "name": "Jonas Johansson",
+    "email": "jns.johansson@gmail.com",
+    "url": "https://jonasjohansson.se/"
+  },
+  "main": "main.js",
+  "dependencies": {
+    "electron-about-window": "^1.13.2",
+    "electron-dl": "^1.14.0",
+    "electron-store": "^5.1.0",
+    "event-emitter-es6": "^1.1.5",
+    "favicon-url": "^0.0.5"
+  },
+  "devDependencies": {
+    "electron": "^7.1.7",
+    "electron-builder": "^21.2.0"
+  },
+  "scripts": {
+    "dist": "node build.js -mw"
+  }
 }
