@@ -11,6 +11,7 @@ module.exports = new Store({
     },
     darkMode: false,
     showUnreadBadge: true,
+    badgeIcon: "",
     showHidden: false,
     alwaysOnTop: false,
     bookmarks: [

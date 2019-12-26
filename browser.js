@@ -18,15 +18,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   showBookmark(0);
 
-  document.documentElement.classList.toggle(
-    "dark-mode",
-    config.get("darkMode")
-  );
+  document.documentElement.classList.toggle("dark-mode", config.get("darkMode"));
   // document.documentElement.classList.toggle('portrait', config.get('portrait'));
-  document.documentElement.classList.toggle(
-    "show-hidden",
-    config.get("showHidden")
-  );
+  document.documentElement.classList.toggle("show-hidden", config.get("showHidden"));
 });
 
 function createBookmark(data) {
@@ -58,9 +52,7 @@ function createBookmark(data) {
   b.on("page-title-updated", event => {
     let messageCount = 0;
     for (const bookmark of bookmarks) {
-      messageCount += Number(
-        bookmark.handle.getAttribute("data-message-count")
-      );
+      messageCount += Number(bookmark.handle.getAttribute("data-message-count"));
     }
     if (config.get("showUnreadBadge")) {
       ipcRenderer.send("page-title-updated", messageCount);

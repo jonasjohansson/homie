@@ -14,7 +14,7 @@ download.directory = app.getPath("desktop");
 
 let win = null;
 
-app.disableHardwareAcceleration();
+// app.disableHardwareAcceleration();
 
 app.on("ready", () => {
   electron.Menu.setApplicationMenu(menu);
@@ -57,18 +57,18 @@ const createWindow = () => {
   tray.create(win);
 };
 
+let badgeIcon = config.get("badgeIcon");
+
 ipcMain.on("page-title-updated", (events, args) => {
   app.setBadgeCount(args);
   tray.setBadge(args);
+  if (badgeIcon !== "") {
+    let msg = args > 0 ? badgeIcon : "";
+    // msg = "\033[" + 31 + "m" + msg + "\033[0m";
+    // tray.setTitle(args.toString());
+    tray.setTitle(msg);
+  }
 });
-
-// ipcMain.on("quit", () => {
-//   app.quit();
-// });
-
-// ipcMain.on("debug", () => {
-//   win.webContents.openDevTools({ mode: "detach" });
-// });
 
 ipcMain.on("createNew", () => {
   createWindow();
