@@ -111,14 +111,14 @@ for (const bookmarkData of config.get("bookmarks")) {
 
 const windowMenu = [
   { role: "minimize" },
-  { role: "close" },
-  {
-    label: "New Window",
-    accelerator: "CommandOrControl+N",
-    click() {
-      sendAction("createNew");
-    }
-  }
+  { role: "close" }
+  // {
+  //   label: "New Window",
+  //   accelerator: "CommandOrControl+N",
+  //   click() {
+  //     sendAction("createNew");
+  //   }
+  // }
 ];
 
 const helpMenu = [

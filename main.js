@@ -14,7 +14,7 @@ download.directory = app.getPath("desktop");
 
 let win = null;
 
-// app.disableHardwareAcceleration();
+app.disableHardwareAcceleration();
 
 app.on("ready", () => {
   electron.Menu.setApplicationMenu(menu);
