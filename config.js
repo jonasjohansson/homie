@@ -41,7 +41,7 @@ module.exports = new Store({
         url: 'https://web.whatsapp.com/'
       },
       {
-        url: 'https://discordapp.com/',
+        url: 'https://discordapp.com/channels/@me',
         isMuted: true,
         isDark: true
       }
