@@ -1,11 +1,11 @@
-"use strict";
-const electron = require("electron");
-const config = require("./config");
-const lookup = require("./lookup");
-const openAboutWindow = require("electron-about-window").default;
+'use strict';
+const electron = require('electron');
+const config = require('./config');
+const lookup = require('./lookup');
+const openAboutWindow = require('electron-about-window').default;
 
 const { app, BrowserWindow, shell } = electron;
-const appName = app.getName();
+const appName = app.name;
 
 let oldWin;
 
@@ -21,14 +21,14 @@ function sendAction(action, arg = null) {
 
 const appMenu = [
   {
-    label: "About Homie",
+    label: 'About Homie',
     click: () =>
       openAboutWindow({
         icon_path: `${__dirname}/assets/icon.png`,
         copyright: `Copyright (c) ${new Date().getFullYear()} Jonas Johansson`,
-        homepage: "https://jonasjohansson.itch.io/homie",
+        homepage: 'https://jonasjohansson.itch.io/homie',
         win_options: {
-          titleBarStyle: "hidden"
+          titleBarStyle: 'hidden'
           // parent: BrowserWindow.getFocusedWindow(),
           // modal: true,
         },
@@ -36,16 +36,16 @@ const appMenu = [
         package_json_dir: __dirname
       })
   },
-  { type: "separator" },
+  { type: 'separator' },
   {
-    label: "Preferences…",
-    accelerator: "Cmd+,",
+    label: 'Preferences…',
+    accelerator: 'Cmd+,',
     click() {
       config.openInEditor();
     }
   },
   {
-    label: "Icons…",
+    label: 'Icons…',
     click() {
       lookup.openInEditor();
     }
@@ -57,61 +57,61 @@ const appMenu = [
   // 		sendAction('toggleHidden');
   // 	}
   // },
-  { type: "separator" },
-  { role: "hide" },
-  { role: "hideothers" },
-  { role: "unhide" },
-  { type: "separator" },
-  { role: "quit" }
+  { type: 'separator' },
+  { role: 'hide' },
+  { role: 'hideothers' },
+  { role: 'unhide' },
+  { type: 'separator' },
+  { role: 'quit' }
 ];
 
 const bookmarkMenu = [
   {
-    label: "Reload",
-    accelerator: "CommandOrControl+R",
+    label: 'Reload',
+    accelerator: 'CommandOrControl+R',
     click() {
-      sendAction("reload");
+      sendAction('reload');
     }
   },
   {
-    label: "Reload All",
-    accelerator: "CommandOrControl+Shift+R",
+    label: 'Reload All',
+    accelerator: 'CommandOrControl+Shift+R',
     click() {
-      sendAction("reloadAll");
+      sendAction('reloadAll');
     }
   },
   {
-    label: "Back",
+    label: 'Back',
     // accelerator: 'CommandOrControl+Left',
     click() {
-      sendAction("back");
+      sendAction('back');
     }
   },
   {
-    label: "Forward",
+    label: 'Forward',
     // accelerator: 'CommandOrControl+Right',
     click() {
-      sendAction("forward");
+      sendAction('forward');
     }
   },
-  { type: "separator" }
+  { type: 'separator' }
 ];
 
 var step = 0;
-for (const bookmarkData of config.get("bookmarks")) {
+for (const bookmarkData of config.get('bookmarks')) {
   let i = ++step;
   bookmarkMenu.push({
     label: bookmarkData.url,
     accelerator: `CommandOrControl+${i}`,
     click() {
-      sendAction("showBookmark", i - 1);
+      sendAction('showBookmark', i - 1);
     }
   });
 }
 
 const windowMenu = [
-  { role: "minimize" },
-  { role: "close" }
+  { role: 'minimize' },
+  { role: 'close' }
   // {
   //   label: "New Window",
   //   accelerator: "CommandOrControl+N",
@@ -123,21 +123,21 @@ const windowMenu = [
 
 const helpMenu = [
   {
-    label: "Website",
+    label: 'Website',
     click() {
-      shell.openExternal("https://jonasjohansson.se");
+      shell.openExternal('https://jonasjohansson.se');
     }
   },
   {
-    label: "Source Code",
+    label: 'Source Code',
     click() {
-      shell.openExternal("https://github.com/jonasjohansson/homie");
+      shell.openExternal('https://github.com/jonasjohansson/homie');
     }
   },
-  { type: "separator" },
-  { role: "toggledevtools" },
+  { type: 'separator' },
+  { role: 'toggledevtools' },
   {
-    label: "Reset",
+    label: 'Reset',
     click() {
       config.clear();
       lookup.clear();
@@ -151,18 +151,18 @@ const menu = [
     submenu: appMenu
   },
   {
-    role: "editMenu"
+    role: 'editMenu'
   },
   {
-    label: "Bookmark",
+    label: 'Bookmark',
     submenu: bookmarkMenu
   },
   {
-    role: "window",
+    role: 'window',
     submenu: windowMenu
   },
   {
-    role: "help",
+    role: 'help',
     submenu: helpMenu
   }
 ];

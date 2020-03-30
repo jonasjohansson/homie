@@ -1,26 +1,25 @@
-"use strict";
-const { ipcRenderer } = require("electron");
-const Bookmark = require("./bookmark");
-const config = require("./config");
+'use strict';
+const { ipcRenderer } = require('electron');
+const Bookmark = require('./bookmark');
+const config = require('./config');
 
 let main;
 let aside;
 const bookmarks = [];
 let currentBookmark;
 
-document.addEventListener("DOMContentLoaded", () => {
-  main = document.querySelector("main");
-  aside = document.querySelector("aside");
+document.addEventListener('DOMContentLoaded', () => {
+  main = document.querySelector('main');
+  aside = document.querySelector('aside');
 
-  for (const bookmarkData of config.get("bookmarks")) {
+  for (const bookmarkData of config.get('bookmarks')) {
     createBookmark(bookmarkData);
   }
 
   showBookmark(0);
 
-  document.documentElement.classList.toggle("dark-mode", config.get("darkMode"));
-  // document.documentElement.classList.toggle('portrait', config.get('portrait'));
-  document.documentElement.classList.toggle("show-hidden", config.get("showHidden"));
+  document.documentElement.classList.toggle('dark-mode', config.get('darkMode'));
+  document.documentElement.classList.toggle('show-hidden', config.get('showHidden'));
 });
 
 function createBookmark(data) {
@@ -35,7 +34,7 @@ function createBookmark(data) {
 
   b.hide();
 
-  b.on("click", () => {
+  b.on('click', () => {
     if (b === currentBookmark) {
       return;
     }
@@ -49,14 +48,14 @@ function createBookmark(data) {
     currentBookmark = b;
   });
 
-  b.on("page-title-updated", event => {
+  b.on('page-title-updated', event => {
     let messageCount = 0;
     for (const bookmark of bookmarks) {
-      messageCount += Number(bookmark.handle.getAttribute("data-message-count"));
+      messageCount += Number(bookmark.handle.getAttribute('data-message-count'));
     }
-    if (config.get("showUnreadBadge")) {
-      ipcRenderer.send("page-title-updated", messageCount);
-    }
+    // if (config.get('showUnreadBadge')) {
+    ipcRenderer.send('page-title-updated', messageCount);
+    // }
   });
 
   return b;
@@ -66,11 +65,11 @@ var showBookmark = index => {
   bookmarks[index].handleIcon.click();
 };
 
-ipcRenderer.on("reload", () => {
+ipcRenderer.on('reload', () => {
   currentBookmark.reload();
 });
 
-ipcRenderer.on("reloadAll", () => {
+ipcRenderer.on('reloadAll', () => {
   for (let bookmark of bookmarks) bookmark.reload();
 });
 
@@ -79,26 +78,26 @@ ipcRenderer.on("reloadAll", () => {
 // 	document.documentElement.classList.toggle('show-hidden', config.get('showHidden'));
 // });
 
-ipcRenderer.on("back", () => {
+ipcRenderer.on('back', () => {
   currentBookmark.back();
 });
 
-ipcRenderer.on("forward", () => {
+ipcRenderer.on('forward', () => {
   currentBookmark.forward();
 });
 
-ipcRenderer.on("toggleSize", () => {
+ipcRenderer.on('toggleSize', () => {
   currentBookmark.toggleSize();
 });
 
-ipcRenderer.on("toggleAlign", () => {
+ipcRenderer.on('toggleAlign', () => {
   currentBookmark.toggleAlign();
 });
 
-ipcRenderer.on("showBookmark", (event, args) => {
+ipcRenderer.on('showBookmark', (event, args) => {
   showBookmark(args);
 });
 
-ipcRenderer.on("createNew", () => {
-  ipcRenderer.send("createNew");
+ipcRenderer.on('createNew', () => {
+  ipcRenderer.send('createNew');
 });

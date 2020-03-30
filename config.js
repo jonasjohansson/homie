@@ -1,5 +1,5 @@
-"use strict";
-const Store = require("electron-store");
+'use strict';
+const Store = require('electron-store');
 
 module.exports = new Store({
   defaults: {
@@ -9,65 +9,41 @@ module.exports = new Store({
       width: 800,
       height: 600
     },
+    // showUnreadBadge: true,
+    // badgeIcon: '',
     darkMode: false,
-    showUnreadBadge: true,
-    badgeIcon: "",
     showHidden: false,
     alwaysOnTop: false,
     bookmarks: [
       {
-        url: "https://messenger.com/",
-        isHidden: false
-        // isMuted: false,
-        // icon: ''
+        url: 'https://messenger.com/',
+        isMuted: true
       },
       {
-        url: "https://gmail.com/",
-        isHidden: false
-        // isMuted: false,
-        // icon: ''
+        url: 'https://gmail.com/'
       },
       {
-        url: "https://calendar.google.com/",
-        isHidden: false
-        // isMuted: false,
-        // icon: ''
+        url: 'https://calendar.google.com/'
       },
       {
-        url: "https://drive.google.com/drive/",
-        isHidden: false
-        // isMuted: false,
-        // icon: ''
+        url: 'https://drive.google.com/drive/'
       },
       {
-        url: "https://docs.google.com/",
-        isHidden: false
-        // isMuted: false,
-        // icon: ''
+        url: 'https://docs.google.com/'
       },
       {
-        url: "https://spreadsheets.google.com/",
-        isHidden: false
-        // isMuted: false,
-        // icon: ''
+        url: 'https://spreadsheets.google.com/'
       },
       {
-        url: "https://trello.com/",
-        isHidden: false
-        // isMuted: false,
-        // icon: ''
+        url: 'https://trello.com/'
       },
       {
-        url: "https://web.whatsapp.com/",
-        isHidden: false
-        // isMuted: false,
-        // icon: ''
+        url: 'https://web.whatsapp.com/'
       },
       {
-        url: "https://slack.com/",
-        isHidden: false
-        // isMuted: false,
-        // icon: ''
+        url: 'https://discordapp.com/',
+        isMuted: true,
+        isDark: true
       }
     ]
   }

@@ -1,9 +1,6 @@
 :root {
   --base: 20px;
   --aside-size: 36px;
-  --menu-size: 0;
-  --font-family: system-ui, sans-serif;
-  --gray: #eee;
 }
 
 * {
@@ -21,8 +18,7 @@ body {
 }
 
 body {
-  font-family: var(--font-family);
-  background-color: white;
+  font-family: system-ui, sans-serif;
 }
 
 input {
@@ -63,9 +59,6 @@ aside {
   width: 100%;
   height: var(--aside-size);
   display: flex;
-  /*justify-content: flex-end;*/
-  padding-left: var(--menu-size);
-  border-bottom: 1px solid var(--gray);
   -webkit-app-region: drag;
 }
 
@@ -73,7 +66,7 @@ aside:after,
 main:after,
 aside > div:after {
   display: block;
-  content: "";
+  content: '';
   clear: both;
 }
 
@@ -94,6 +87,10 @@ webview.hidden {
   display: none;
 }
 
+webview.inverted {
+  filter: invert(1);
+}
+
 /* aside */
 
 aside {
@@ -103,9 +100,6 @@ aside {
 
 .bookmark {
   display: inline-block;
-  /*height: calc(var(--base) * 2);*/
-  /*line-height: calc(var(--base) * 2);*/
-  /* -webkit-app-region: no-drag; */
   cursor: pointer;
 }
 
@@ -116,7 +110,6 @@ aside {
 
 .bookmark:not(.active) .icon {
   opacity: 0.2;
-  /*filter: saturate(0);*/
 }
 
 .bookmark .url,
@@ -157,14 +150,17 @@ aside {
 
 /* classes */
 
-html:not(.dark-mode) aside {
-  background-color: white;
+html:not(.dark-mode) {
+  background-color: #fafafa;
   color: black;
 }
 
-html.dark-mode aside {
-  background-color: black;
+html.dark-mode {
+  background-color: #222;
   color: white;
+}
+html.dark-mode webview:not(.is-dark) {
+  filter: invert(1);
 }
 
 html:not(.show-hidden) .is-hidden {

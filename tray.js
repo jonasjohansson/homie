@@ -1,5 +1,5 @@
-"use strict";
-const electron = require("electron");
+'use strict';
+const electron = require('electron');
 
 let tray = null;
 
@@ -9,7 +9,7 @@ const trayIconUnread = `${__dirname}/assets/tray/trayIconUnread.png`;
 exports.create = win => {
   tray = new electron.Tray(trayIconDefault);
   // tray.setHighlightMode('never'); https://electronjs.org/docs/api/breaking-changes#tray
-  tray.on("click", () => {
+  tray.on('click', () => {
     win.show();
     win.focus();
   });
