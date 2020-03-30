@@ -159,8 +159,9 @@ html.dark-mode {
   background-color: #222;
   color: white;
 }
+
 html.dark-mode webview:not(.is-dark) {
-  filter: invert(1);
+  filter: invert(100%);
 }
 
 html:not(.show-hidden) .is-hidden {

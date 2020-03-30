@@ -20,9 +20,10 @@ class Bookmark extends EventEmitter {
     this.handle.classList.toggle('is-hidden', data.isHidden);
 
     this.view = new WebView();
-    this.view.classList.toggle('is-dark', data.isDark);
     this.view.autosize = true;
     this.view.nodeIntegration = false;
+    this.view.allowPopups = false;
+    this.view.classList.toggle('is-dark', data.isDark);
 
     // https://github.com/meetfranz/franz/issues/1185
     if (data.url.includes('whatsapp')) {
@@ -43,11 +44,11 @@ class Bookmark extends EventEmitter {
 
     /* Listeners */
 
-    this.view.addEventListener('dom-ready', () => {
+    this.view.addEventListener('dom-ready', event => {
       this.view.audioMuted = data.isMuted;
 
       if (document.documentElement.classList.contains('dark-mode') && !data.isDark) {
-        this.view.insertCSS('img, svg { filter: invert(1); opacity: 1; }');
+        this.view.insertCSS('img, svg { filter: invert(100%); opacity: 1;  }');
       }
     });
 
