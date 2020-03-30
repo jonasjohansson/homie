@@ -45,7 +45,6 @@ class Bookmark extends EventEmitter {
 
     this.view.addEventListener('dom-ready', () => {
       this.view.audioMuted = data.isMuted;
-      console.log('Yep!', data, document.documentElement.classList.contains('dark-mode'));
 
       if (document.documentElement.classList.contains('dark-mode') && !data.isDark) {
         this.view.insertCSS('img, svg { filter: invert(1); opacity: 1; }');
