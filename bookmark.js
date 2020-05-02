@@ -29,6 +29,8 @@ class Bookmark extends EventEmitter {
     if (data.url.includes('whatsapp')) {
       this.view.useragent =
         'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36';
+    } else {
+      // this.view.useragent = 'Chrome';
     }
 
     this.view.allowpopups = true;
