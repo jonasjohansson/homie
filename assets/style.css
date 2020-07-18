@@ -1,175 +1,175 @@
 :root {
-  --base: 20px;
-  --aside-size: 36px;
+    --base: 20px;
+    --aside-size: 36px;
 }
 
 * {
-  margin: 0;
-  border: 0;
-  padding: 0;
-  outline: none;
+    margin: 0;
+    border: 0;
+    padding: 0;
+    outline: none;
 }
 
 html,
 body {
-  position: absolute;
-  width: 100%;
-  height: 100%;
+    position: absolute;
+    width: 100%;
+    height: 100%;
 }
 
 body {
-  font-family: system-ui, sans-serif;
+    font-family: system-ui, sans-serif;
 }
 
 input {
-  color: inherit;
+    color: inherit;
 }
 
 button {
-  background-color: transparent;
+    background-color: transparent;
 }
 
 /* menu */
 
 menu {
-  position: fixed;
-  top: 0;
-  left: var(--aside-size);
-  width: calc(100% - var(--aside-size));
-  height: var(--base);
-  -webkit-app-region: drag;
-  z-index: 10000;
+    position: fixed;
+    top: 0;
+    left: var(--aside-size);
+    width: calc(100% - var(--aside-size));
+    height: var(--base);
+    -webkit-app-region: drag;
+    z-index: 10000;
 }
 
 /* main, aside */
 
 main,
 aside {
-  float: left;
+    float: left;
 }
 
 main {
-  top: var(--aside-size);
-  width: 100%;
-  height: calc(100% - var(--aside-size));
+    top: var(--aside-size);
+    width: 100%;
+    height: calc(100% - var(--aside-size));
 }
 
 aside {
-  top: 0;
-  width: 100%;
-  height: var(--aside-size);
-  display: flex;
-  -webkit-app-region: drag;
+    top: 0;
+    width: 100%;
+    height: var(--aside-size);
+    display: flex;
+    -webkit-app-region: drag;
 }
 
 aside:after,
 main:after,
 aside > div:after {
-  display: block;
-  content: '';
-  clear: both;
+    display: block;
+    content: '';
+    clear: both;
 }
 
 /* main */
 
 main {
-  position: absolute;
-  background-color: white;
+    position: absolute;
+    background-color: white;
 }
 
-webview {
-  position: absolute;
-  width: 100%;
-  height: 100%;
+main > * {
+    position: absolute;
+    width: 100%;
+    height: 100%;
 }
 
-webview.hidden {
-  display: none;
+main > *.hidden {
+    display: none;
 }
 
-webview.inverted {
-  filter: invert(1);
+main > *.inverted {
+    filter: invert(1);
 }
 
 /* aside */
 
 aside {
-  position: fixed;
-  box-sizing: border-box;
+    position: fixed;
+    box-sizing: border-box;
 }
 
 .bookmark {
-  display: inline-block;
-  cursor: pointer;
+    display: inline-block;
+    cursor: pointer;
 }
 
 .bookmark > * {
-  float: left;
-  display: block;
+    float: left;
+    display: block;
 }
 
 .bookmark:not(.active) .icon {
-  opacity: 0.2;
+    opacity: 0.2;
 }
 
 .bookmark .url,
 .bookmark .icon {
-  height: 100%;
+    height: 100%;
 }
 
 .bookmark .url {
-  width: calc(var(--aside-size) * 3);
-  padding: calc(var(--base) / 2);
-  box-sizing: border-box;
-  background-color: transparent;
+    width: calc(var(--aside-size) * 3);
+    padding: calc(var(--base) / 2);
+    box-sizing: border-box;
+    background-color: transparent;
 }
 
 .bookmark .icon {
-  position: relative;
-  width: var(--aside-size);
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-size: 60%;
-  font-size: var(--base);
-  text-align: center;
-  cursor: pointer;
+    position: relative;
+    width: var(--aside-size);
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: 60%;
+    font-size: var(--base);
+    text-align: center;
+    cursor: pointer;
 }
 
 .bookmark.active {
-  background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
 .bookmark.unread .icon:before {
-  opacity: 0.2;
-  width: calc(var(--base) / 3);
+    opacity: 0.2;
+    width: calc(var(--base) / 3);
 }
 
 .bookmark.is-muted .icon {
-  filter: grayscale(100%);
+    filter: grayscale(100%);
 }
 
 /* classes */
 
 html:not(.dark-mode) {
-  background-color: #fafafa;
-  color: black;
+    background-color: #fafafa;
+    color: black;
 }
 
 html.dark-mode {
-  background-color: #222;
-  color: white;
+    background-color: #222;
+    color: white;
 }
 
-html.dark-mode webview:not(.is-dark) {
-  filter: invert(100%);
+html.dark-mode main > *:not(.is-dark) {
+    filter: invert(100%);
 }
 
 html:not(.show-hidden) .is-hidden {
-  display: none;
+    display: none;
 }
 
 /* fixes */
 
 ::-webkit-scrollbar {
-  display: none;
+    display: none;
 }
