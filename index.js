@@ -6,6 +6,10 @@ const tray = require('./tray')
 const menu = require('./menu')
 const config = require('./config')
 const path = require('path')
+const os = require('os')
+// const { ExtensibleSession } = require('electron-extensions')
+
+// const extensions = new ExtensibleSession()
 
 download.directory = app.getPath('desktop')
 
@@ -16,13 +20,14 @@ download.directory = app.getPath('desktop')
 let win = null
 
 app.disableHardwareAcceleration()
+app.allowRendererProcessReuse = true
 
-app.on('ready', async () => {
+app.on('ready', () => {
+    const extensionPath = os.homedir() + '/Library/Application Support/Google/Chrome/Default/Extensions/'
+    BrowserWindow.addExtension(path.join(extensionPath, 'dgnlcodfeenegnifnpcabcclldoceeml/2.8_0'))
+    BrowserWindow.addExtension(path.join(extensionPath, 'iajhmklhilkjgabejjemfbhmclgnmamf/1.20.2_0'))
     electron.Menu.setApplicationMenu(menu)
     createWindow()
-    // https://www.electronjs.org/docs/api/session#sesloadextensionpath
-    await session.defaultSession.loadExtension(path.join(__dirname, 'addons/list-layouts-for-trello/'))
-    await session.defaultSession.loadExtension(path.join(__dirname, 'addons/next-step-for-trello/'))
 })
 
 app.on('window-all-closed', () => {
@@ -37,7 +42,7 @@ app.on('before-quit', () => {
     config.set('lastWindowState', win.getBounds())
 })
 
-const createWindow = () => {
+const createWindow = async () => {
     const lastWindowState = config.get('lastWindowState')
 
     win = new BrowserWindow({

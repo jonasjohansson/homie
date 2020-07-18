@@ -62,6 +62,3 @@ typings/
 .DS_Store
 /dist
 Package-lock.json
-
-# other
-/addons
