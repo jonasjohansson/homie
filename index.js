@@ -23,9 +23,13 @@ app.disableHardwareAcceleration()
 app.allowRendererProcessReuse = true
 
 app.on('ready', () => {
-    const extensionPath = os.homedir() + '/Library/Application Support/Google/Chrome/Default/Extensions/'
-    BrowserWindow.addExtension(path.join(extensionPath, 'dgnlcodfeenegnifnpcabcclldoceeml/2.8_0'))
-    BrowserWindow.addExtension(path.join(extensionPath, 'iajhmklhilkjgabejjemfbhmclgnmamf/1.20.2_0'))
+    try {
+        const extensionPath = os.homedir() + '/Library/Application Support/Google/Chrome/Default/Extensions/'
+        BrowserWindow.addExtension(path.join(extensionPath, 'dgnlcodfeenegnifnpcabcclldoceeml/2.8_0'))
+        BrowserWindow.addExtension(path.join(extensionPath, 'iajhmklhilkjgabejjemfbhmclgnmamf/1.20.2_0'))
+    } catch (err) {
+        console.error(err)
+    }
     electron.Menu.setApplicationMenu(menu)
     createWindow()
 })

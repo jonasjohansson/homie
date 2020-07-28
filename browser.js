@@ -86,6 +86,13 @@ ipcRenderer.on('forward', () => {
     currentBookmark.forward()
 })
 
+// ipcRenderer.on('zoom', dir => {
+//     let zoomLevel = currentBookmark.view.getZoomLevel()
+//     let zoomFactor = currentBookmark.view.getZoomFactor()
+//     console.log(zoomLevel, zoomFactor)
+//     currentBookmark.view.setZoomLevel(zoomLevel + (0.2 * dir)
+// })
+
 ipcRenderer.on('toggleSize', () => {
     currentBookmark.toggleSize()
 })

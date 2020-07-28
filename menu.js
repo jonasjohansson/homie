@@ -101,6 +101,24 @@ const bookmarkMenu = [
             sendAction('save')
         }
     },
+    { type: 'separator' },
+    // {
+    //     label: 'Zoom In',
+    //     accelerator: 'CommandOrControl++',
+    //     click() {
+    //         sendAction('zoom', 1)
+    //     }
+    // },
+    // {
+    //     label: 'Zoom Out',
+    //     accelerator: 'CommandOrControl+-',
+    //     click() {
+    //         sendAction('zoom', -1)
+    //     }
+    // },
+    { role: 'resetZoom' },
+    { role: 'zoomIn' },
+    { role: 'zoomOut' },
     { type: 'separator' }
 ]
 
