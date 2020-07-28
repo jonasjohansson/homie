@@ -31,6 +31,9 @@
         },
         "dmg": {
             "title": "Homie"
-        }
+        },
+        "extraFiles": [
+            "extensions/**/*"
+        ]
     }
 }

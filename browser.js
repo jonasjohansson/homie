@@ -2,6 +2,8 @@
 const { ipcRenderer } = require('electron')
 const Bookmark = require('./bookmark')
 const config = require('./config')
+// const app = require('electron').remote.app
+// console.log(app.getPath('exe'))
 
 let main
 let aside
