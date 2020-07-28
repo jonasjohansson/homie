@@ -102,23 +102,26 @@ const bookmarkMenu = [
         }
     },
     { type: 'separator' },
-    // {
-    //     label: 'Zoom In',
-    //     accelerator: 'CommandOrControl++',
-    //     click() {
-    //         sendAction('zoom', 1)
-    //     }
-    // },
-    // {
-    //     label: 'Zoom Out',
-    //     accelerator: 'CommandOrControl+-',
-    //     click() {
-    //         sendAction('zoom', -1)
-    //     }
-    // },
-    { role: 'resetZoom' },
-    { role: 'zoomIn' },
-    { role: 'zoomOut' },
+    {
+        label: 'Reset Zoom',
+        click() {
+            sendAction('reset-zoom')
+        }
+    },
+    {
+        label: 'Zoom In',
+        accelerator: 'CommandOrControl++',
+        click() {
+            sendAction('zoom-in')
+        }
+    },
+    {
+        label: 'Zoom Out',
+        accelerator: 'CommandOrControl+-',
+        click() {
+            sendAction('zoom-out')
+        }
+    },
     { type: 'separator' }
 ]
 

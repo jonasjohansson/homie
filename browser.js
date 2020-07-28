@@ -88,12 +88,17 @@ ipcRenderer.on('forward', () => {
     currentBookmark.forward()
 })
 
-// ipcRenderer.on('zoom', dir => {
-//     let zoomLevel = currentBookmark.view.getZoomLevel()
-//     let zoomFactor = currentBookmark.view.getZoomFactor()
-//     console.log(zoomLevel, zoomFactor)
-//     currentBookmark.view.setZoomLevel(zoomLevel + (0.2 * dir)
-// })
+ipcRenderer.on('zoom-in', () => {
+    currentBookmark.view.setZoomLevel(currentBookmark.view.getZoomLevel() + 0.5)
+})
+
+ipcRenderer.on('zoom-out', () => {
+    currentBookmark.view.setZoomLevel(currentBookmark.view.getZoomLevel() - 0.5)
+})
+
+ipcRenderer.on('reset-zoom', () => {
+    currentBookmark.view.setZoomLevel(0)
+})
 
 ipcRenderer.on('toggleSize', () => {
     currentBookmark.toggleSize()
