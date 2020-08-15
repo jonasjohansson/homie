@@ -5,23 +5,17 @@ const electron = require('electron')
 const tray = require('./tray')
 const menu = require('./menu')
 const config = require('./config')
-const path = require('path')
+const { lstatSync, readdirSync } = require('fs')
+const { join } = require('path')
 
 download.directory = app.getPath('desktop')
 
 let win = null
-
 app.disableHardwareAcceleration()
 app.allowRendererProcessReuse = true
 
 app.on('ready', () => {
-    try {
-        const extensionPath = app.getPath('exe').replace('MacOS/Homie', 'extensions')
-        BrowserWindow.addExtension(path.join(extensionPath, 'dgnlcodfeenegnifnpcabcclldoceeml/2.8_0'))
-        BrowserWindow.addExtension(path.join(extensionPath, 'iajhmklhilkjgabejjemfbhmclgnmamf/1.20.2_0'))
-    } catch (err) {
-        console.error(err)
-    }
+    getExtensions()
     electron.Menu.setApplicationMenu(menu)
     createWindow()
 })
@@ -78,3 +72,26 @@ ipcMain.on('page-title-updated', (events, args) => {
 ipcMain.on('createNew', () => {
     createWindow()
 })
+
+const getExtensions = () => {
+    const installedExtensions = getDirectories(
+        process.env.HOME + '/Library/Application Support/Google/Chrome/Default/Extensions'
+    )
+    const extensions = []
+    for (let ext of installedExtensions) {
+        const version = getDirectories(ext)
+        extensions.push(version)
+        try {
+            BrowserWindow.addExtension(version + '/')
+        } catch (err) {
+            console.error(err)
+        }
+    }
+    config.set('extensions', extensions)
+}
+
+const isDirectory = source => lstatSync(source).isDirectory()
+const getDirectories = source =>
+    readdirSync(source)
+        .map(name => join(source, name))
+        .filter(isDirectory)
