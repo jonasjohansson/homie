@@ -77,17 +77,20 @@ const getExtensions = () => {
     const installedExtensions = getDirectories(
         process.env.HOME + '/Library/Application Support/Google/Chrome/Default/Extensions'
     )
-    const extensions = []
-    for (let ext of installedExtensions) {
-        const version = getDirectories(ext)
-        extensions.push(version)
-        try {
-            BrowserWindow.addExtension(version + '/')
-        } catch (err) {
-            console.error(err)
-        }
-    }
-    config.set('extensions', extensions)
+    const userExtensions = config.get('extensions')
+
+    installedExtensions.forEach(ext => {
+        userExtensions.forEach(ext2 => {
+            if (ext.indexOf(ext2) >= 0) {
+                const version = getDirectories(ext)
+                try {
+                    BrowserWindow.addExtension(version + '/')
+                } catch (err) {
+                    console.error(err)
+                }
+            }
+        })
+    })
 }
 
 const isDirectory = source => lstatSync(source).isDirectory()
