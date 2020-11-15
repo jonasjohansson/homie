@@ -20,6 +20,13 @@ app.whenReady().then(() => {
   getExtensions();
   electron.Menu.setApplicationMenu(menu);
   app.on("activate", () => {
+    session.defaultSession.webRequest.onBeforeSendHeaders(
+      (details, callback) => {
+        details.requestHeaders["User-Agent"] = "Chrome";
+        callback({ cancel: false, requestHeaders: details.requestHeaders });
+      }
+    );
+
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
       win.show();
