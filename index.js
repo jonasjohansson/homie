@@ -17,7 +17,6 @@ app.allowRendererProcessReuse = true;
 const authUrl = `file://${__dirname}/index.html`;
 
 app.whenReady().then(() => {
-  getExtensions();
   electron.Menu.setApplicationMenu(menu);
   app.on("activate", () => {
     session.defaultSession.webRequest.onBeforeSendHeaders(
@@ -27,17 +26,16 @@ app.whenReady().then(() => {
       }
     );
 
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-      win.show();
-    }
+    getExtensions();
+    createWindow();
+    win.show();
   });
 });
 
 app.setAsDefaultProtocolClient("homie");
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  app.quit();
 });
 
 app.on("before-quit", () => {
@@ -87,23 +85,25 @@ ipcMain.on("createNew", () => {
 });
 
 const getExtensions = () => {
-  const installedExtensions = getDirectories(
+  const extensionPath =
     process.env.HOME +
-      "/Library/Application Support/Google/Chrome/Default/Extensions"
-  );
+    "/Library/Application Support/Google/Chrome/Default/Extensions";
+  const installedExtensions = getDirectories(extensionPath);
+
   const userExtensions = config.get("extensions");
 
   installedExtensions.forEach((ext) => {
-    userExtensions.forEach((ext2) => {
-      if (ext.indexOf(ext2) >= 0) {
-        const version = getDirectories(ext);
-        try {
-          BrowserWindow.addExtension(version + "/");
-        } catch (err) {
-          console.error(err);
-        }
-      }
-    });
+    console.log(ext);
+    // userExtensions.forEach((ext2) => {
+    // if (ext.indexOf(ext2) >= 0) {
+    const version = getDirectories(ext);
+    try {
+      BrowserWindow.addExtension(version + "/");
+    } catch (err) {
+      console.error(err);
+    }
+    // }
+    // });
   });
 };
 
