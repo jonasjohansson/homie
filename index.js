@@ -25,11 +25,11 @@ app.whenReady().then(() => {
         callback({ cancel: false, requestHeaders: details.requestHeaders });
       }
     );
-
-    getExtensions();
-    createWindow();
-    win.show();
   });
+
+  getExtensions();
+  createWindow();
+  win.show();
 });
 
 app.setAsDefaultProtocolClient("homie");
