@@ -29,7 +29,7 @@ class Bookmark extends EventEmitter {
         // https://github.com/meetfranz/franz/issues/1185
         if (data.url.includes('whatsapp')) {
             this.view.useragent =
-                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36';
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_0_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36';
         }
 
         this.handleIcon = document.createElement('div');
@@ -61,12 +61,9 @@ class Bookmark extends EventEmitter {
             const url = new URL(event.url);
             const href = url.href;
             const protocol = url.protocol;
+            console.log(url);
             if (protocol === 'http:' || protocol === 'https:') {
-                if (
-                    href.includes('accounts.google.com') ||
-                    href.includes('https://mail.google.com/mail/') ||
-                    href.includes('?authuser')
-                ) {
+                if (href.includes('accounts.google.com')) {
                     this.view.src = href;
                 } else {
                     shell.openExternal(href);

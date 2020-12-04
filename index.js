@@ -29,6 +29,7 @@ app.whenReady().then(() => {
             }
         );
     });
+    // app.userAgentFallback = 'Chrome';
 
     getExtensions();
     createWindow();
@@ -58,6 +59,7 @@ const createWindow = async () => {
         minHeight: 200,
         webPreferences: {
             nodeIntegration: true,
+            enableRemoteModule: true,
             // https://electronjs.org/docs/api/webview-tag
             // https://electronjs.org/docs/api/browser-window
             webviewTag: true,
