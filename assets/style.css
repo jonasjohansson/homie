@@ -98,71 +98,7 @@ aside {
     box-sizing: border-box;
 }
 
-.bookmark {
-    display: inline-block;
-    cursor: pointer;
-}
-
-.bookmark > * {
-    float: left;
-    display: block;
-}
-
-.bookmark:not(.active) .icon {
-    opacity: 0.2;
-}
-
-.bookmark .url,
-.bookmark .icon {
-    height: 100%;
-}
-
-.bookmark .url {
-    width: calc(var(--aside-size) * 3);
-    padding: calc(var(--base) / 2);
-    box-sizing: border-box;
-    background-color: transparent;
-}
-
-.bookmark .icon {
-    position: relative;
-    width: var(--aside-size);
-    background-repeat: no-repeat;
-    background-position: center center;
-    background-size: 60%;
-    font-size: var(--base);
-    text-align: center;
-    cursor: pointer;
-}
-
-.bookmark.active {
-    background-color: rgba(0, 0, 0, 0.05);
-}
-
-.bookmark.unread .icon:before {
-    opacity: 0.2;
-    width: calc(var(--base) / 3);
-}
-
-.bookmark.is-muted .icon {
-    filter: grayscale(100%);
-}
-
 /* classes */
-
-html:not(.dark-mode) {
-    background-color: #fafafa;
-    color: black;
-}
-
-html.dark-mode {
-    background-color: #222;
-    color: white;
-}
-
-html.dark-mode main > *:not(.is-dark) {
-    filter: invert(100%);
-}
 
 html:not(.show-hidden) .is-hidden {
     display: none;
