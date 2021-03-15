@@ -1,111 +1,119 @@
 :root {
-    --base: 20px;
-    --aside-size: 36px;
+	--base: 20px;
+	--aside-size: 36px;
 }
 
 * {
-    margin: 0;
-    border: 0;
-    padding: 0;
-    outline: none;
+	margin: 0;
+	border: 0;
+	padding: 0;
+	outline: none;
 }
 
 html,
 body {
-    position: absolute;
-    width: 100%;
-    height: 100%;
+	position: absolute;
+	width: 100%;
+	height: 100%;
 }
 
 body {
-    font-family: system-ui, sans-serif;
+	font-family: system-ui, sans-serif;
 }
 
 input {
-    color: inherit;
+	color: inherit;
 }
 
 button {
-    background-color: transparent;
+	background-color: transparent;
 }
 
 /* menu */
 
 menu {
-    position: fixed;
-    top: 0;
-    left: var(--aside-size);
-    width: calc(100% - var(--aside-size));
-    height: var(--base);
-    -webkit-app-region: drag;
-    z-index: 10000;
+	position: fixed;
+	top: 0;
+	left: var(--aside-size);
+	width: calc(100% - var(--aside-size));
+	height: var(--base);
+	-webkit-app-region: drag;
+	z-index: 10000;
 }
 
 /* main, aside */
 
 main,
 aside {
-    float: left;
+	float: left;
 }
 
 main {
-    top: var(--aside-size);
-    width: 100%;
-    height: calc(100% - var(--aside-size));
+	width: 100%;
+	height: 100%;
+}
+
+html:not(.hide-nav) main {
+	top: var(--aside-size);
+	height: calc(100% - var(--aside-size));
 }
 
 aside {
-    top: 0;
-    width: 100%;
-    height: var(--aside-size);
-    display: flex;
-    -webkit-app-region: drag;
+	top: 0;
+	width: 100%;
+	height: var(--aside-size);
+	display: flex;
+	-webkit-app-region: drag;
+}
+
+html.hide-nav aside {
+	display: none;
 }
 
 aside:after,
 main:after,
 aside > div:after {
-    display: block;
-    content: '';
-    clear: both;
+	display: block;
+	content: '';
+	clear: both;
 }
 
 /* main */
 
 main {
-    position: absolute;
-    background-color: white;
+	position: absolute;
+	background-color: white;
 }
 
 main > * {
-    position: absolute;
-    width: 100%;
-    height: 100%;
+	position: absolute;
+	width: 100%;
+	height: 100%;
 }
 
 main > *.hidden {
-    display: none;
+	display: none;
 }
 
 main > *.inverted {
-    filter: invert(1);
+	filter: invert(1);
 }
 
 /* aside */
 
 aside {
-    position: fixed;
-    box-sizing: border-box;
+	position: fixed;
+	box-sizing: border-box;
 }
 
 /* classes */
 
 html:not(.show-hidden) .is-hidden {
-    display: none;
+	display: none;
 }
 
 /* fixes */
 
 ::-webkit-scrollbar {
-    display: none;
+	display: none;
 }

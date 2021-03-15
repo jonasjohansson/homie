@@ -1,79 +1,87 @@
-'use strict'
-const { ipcRenderer } = require('electron')
-const Bookmark = require('./bookmark')
-const config = require('./config')
+'use strict';
+const { ipcRenderer } = require('electron');
+const Bookmark = require('./bookmark');
+const config = require('./config');
 // const app = require('electron').remote.app
 // console.log(app.getPath('exe'))
 
-let main
-let aside
-const bookmarks = []
-let currentBookmark
+let main;
+let aside;
+const bookmarks = [];
+let currentBookmark;
 
 document.addEventListener('DOMContentLoaded', () => {
-    main = document.querySelector('main')
-    aside = document.querySelector('aside')
+	main = document.querySelector('main');
+	aside = document.querySelector('aside');
 
-    for (const bookmarkData of config.get('bookmarks')) {
-        createBookmark(bookmarkData)
-    }
+	for (const bookmarkData of config.get('bookmarks')) {
+		createBookmark(bookmarkData);
+	}
 
-    showBookmark(0)
+	showBookmark(0);
 
-    document.documentElement.classList.toggle('dark-mode', config.get('darkMode'))
-    document.documentElement.classList.toggle('show-hidden', config.get('showHidden'))
-})
+	document.documentElement.classList.toggle(
+		'dark-mode',
+		config.get('darkMode')
+	);
+	document.documentElement.classList.toggle(
+		'show-hidden',
+		config.get('showHidden')
+	);
+});
 
 function createBookmark(data) {
-    const b = new Bookmark(data)
+	const b = new Bookmark(data);
 
-    main.appendChild(b.view)
+	main.appendChild(b.view);
 
-    aside.appendChild(b.handle)
-    // aside.insertBefore(b.handle, aside.lastChild);
+	aside.appendChild(b.handle);
+	// aside.insertBefore(b.handle, aside.lastChild);
 
-    bookmarks.push(b)
+	bookmarks.push(b);
 
-    b.hide()
+	b.hide();
 
-    b.on('click', () => {
-        if (b === currentBookmark) {
-            return
-        }
+	b.on('click', () => {
+		if (b === currentBookmark) {
+			return;
+		}
 
-        b.show()
+		b.show();
 
-        if (currentBookmark !== undefined) {
-            currentBookmark.hide()
-        }
+		if (currentBookmark !== undefined) {
+			currentBookmark.hide();
+		}
 
-        currentBookmark = b
-    })
+		currentBookmark = b;
+	});
 
-    b.on('page-title-updated', event => {
-        let messageCount = 0
-        for (const bookmark of bookmarks) {
-            messageCount += Number(bookmark.handle.getAttribute('data-message-count'))
-        }
-        // if (config.get('showUnreadBadge')) {
-        ipcRenderer.send('page-title-updated', messageCount)
-        // }
-    })
+	b.on('page-title-updated', (event) => {
+		let messageCount = 0;
+		for (const bookmark of bookmarks) {
+			messageCount += Number(
+				bookmark.handle.getAttribute('data-message-count')
+			);
+		}
+		// if (config.get('showUnreadBadge')) {
+		ipcRenderer.send('page-title-updated', messageCount);
+		// }
+	});
 
-    return b
+	return b;
 }
 
-var showBookmark = index => {
-    bookmarks[index].handleIcon.click()
-}
+var showBookmark = (index) => {
+	bookmarks[index].handleIcon.click();
+};
 
 ipcRenderer.on('reload', () => {
-    currentBookmark.reload()
-})
+	currentBookmark.reload();
+});
 
 ipcRenderer.on('reloadAll', () => {
-    for (let bookmark of bookmarks) bookmark.reload()
-})
+	for (let bookmark of bookmarks) bookmark.reload();
+});
 
 // ipcRenderer.on('toggleHidden', () => {
 // 	config.set('showHidden', !config.get('showHidden'));
@@ -81,45 +89,50 @@ ipcRenderer.on('reloadAll', () => {
 // });
 
 ipcRenderer.on('back', () => {
-    currentBookmark.back()
-})
+	currentBookmark.back();
+});
 
 ipcRenderer.on('forward', () => {
-    currentBookmark.forward()
-})
+	currentBookmark.forward();
+});
 
 ipcRenderer.on('zoom-in', () => {
-    currentBookmark.view.setZoomLevel(currentBookmark.view.getZoomLevel() + 0.5)
-})
+	currentBookmark.view.setZoomLevel(currentBookmark.view.getZoomLevel() + 0.5);
+});
 
 ipcRenderer.on('zoom-out', () => {
-    currentBookmark.view.setZoomLevel(currentBookmark.view.getZoomLevel() - 0.5)
-})
+	currentBookmark.view.setZoomLevel(currentBookmark.view.getZoomLevel() - 0.5);
+});
 
 ipcRenderer.on('reset-zoom', () => {
-    currentBookmark.view.setZoomLevel(0)
-})
+	currentBookmark.view.setZoomLevel(0);
+});
 
 ipcRenderer.on('toggleSize', () => {
-    currentBookmark.toggleSize()
-})
+	currentBookmark.toggleSize();
+});
 
 ipcRenderer.on('toggleAlign', () => {
-    currentBookmark.toggleAlign()
-})
+	currentBookmark.toggleAlign();
+});
+
+ipcRenderer.on('toggleNav', () => {
+	document.documentElement.classList.toggle('hide-nav');
+});
 
 ipcRenderer.on('showBookmark', (event, args) => {
-    showBookmark(args)
-})
+	showBookmark(args);
+});
 
 ipcRenderer.on('createNew', () => {
-    ipcRenderer.send('createNew')
-})
+	ipcRenderer.send('createNew');
+});
 
 ipcRenderer.on('save', () => {
-    const bookmarkData = config.get('bookmarks')
-    document.querySelectorAll('webview').forEach((webview, i) => {
-        bookmarkData[i].url = webview.src
-    })
-    config.set('bookmarks', bookmarkData)
-})
+	const bookmarkData = config.get('bookmarks');
+	document.querySelectorAll('webview').forEach((webview, i) => {
+		bookmarkData[i].url = webview.src;
+	});
+	config.set('bookmarks', bookmarkData);
+	console.log(bookmarkData);
+});
