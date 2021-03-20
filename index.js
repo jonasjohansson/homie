@@ -98,7 +98,8 @@ const getExtensions = () => {
 	installedExtensions.forEach((ext) => {
 		const version = getDirectories(ext);
 		try {
-			BrowserWindow.addExtension(version + '/');
+			// BrowserWindow.addExtension(version + '/');
+			BrowserWindow.loadExtension(version + '/');
 		} catch (err) {
 			console.error(err);
 		}

@@ -112,6 +112,10 @@ html:not(.show-hidden) .is-hidden {
 	display: none;
 }
 
+.unread {
+	filter: blur(10px);
+}
+
 /* fixes */
 
 ::-webkit-scrollbar {
