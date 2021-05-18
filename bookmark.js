@@ -4,6 +4,7 @@ const faviconUrl = require('favicon-url');
 const lookup = require('./lookup');
 const EventEmitter = require('event-emitter-es6');
 const iconPath = './assets/icons/';
+const config = require('./config');
 
 class Bookmark extends EventEmitter {
 	constructor(data) {
@@ -28,10 +29,9 @@ class Bookmark extends EventEmitter {
 
 		// https://github.com/meetfranz/franz/issues/1185
 		// https://www.whatismybrowser.com/detect/what-is-my-user-agent
-		if (data.url.includes('whatsapp')) {
-			this.view.useragent =
-				'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_3_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36';
-		}
+		// if (data.url.includes('whatsapp')) {
+		this.view.useragent = config.get('useragent');
+		// }
 
 		this.handleIcon = document.createElement('div');
 		this.handleIcon.classList.add('icon');
