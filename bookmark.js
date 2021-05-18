@@ -3,7 +3,6 @@ const { URL } = require('url');
 const faviconUrl = require('favicon-url');
 const lookup = require('./lookup');
 const EventEmitter = require('event-emitter-es6');
-
 const iconPath = './assets/icons/';
 
 class Bookmark extends EventEmitter {
@@ -31,7 +30,7 @@ class Bookmark extends EventEmitter {
 		// https://www.whatismybrowser.com/detect/what-is-my-user-agent
 		if (data.url.includes('whatsapp')) {
 			this.view.useragent =
-				'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36';
+				'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_3_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36';
 		}
 
 		this.handleIcon = document.createElement('div');
