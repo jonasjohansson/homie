@@ -30,11 +30,12 @@ class Bookmark extends EventEmitter {
 		// https://github.com/meetfranz/franz/issues/1185
 		// https://www.whatismybrowser.com/detect/what-is-my-user-agent
 		// if (data.url.includes('whatsapp')) {
-		this.view.useragent = config.get('useragent');
 		// }
 
 		this.handleIcon = document.createElement('div');
 		this.handleIcon.classList.add('icon');
+
+		console.log(data.url);
 
 		this.view.src = this.addHTTP(data.url);
 
@@ -46,6 +47,7 @@ class Bookmark extends EventEmitter {
 
 		this.view.addEventListener('dom-ready', (event) => {
 			this.view.audioMuted = data.isMuted;
+			this.view.setUserAgent(config.get('useragent'));
 
 			if (
 				document.documentElement.classList.contains('dark-mode') &&
@@ -111,7 +113,7 @@ class Bookmark extends EventEmitter {
 	}
 
 	reload() {
-		this.view.reload();
+		this.view.reloadIgnoringCache();
 	}
 
 	back() {

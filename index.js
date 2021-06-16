@@ -34,6 +34,9 @@ app.whenReady().then(() => {
 	// getExtensions();
 	createWindow();
 	win.show();
+	win.webContents.session.clearCache(function(){
+		//some callback.
+		});
 });
 
 app.setAsDefaultProtocolClient('homie');
