@@ -1,7 +1,7 @@
 {
 	"name": "homie",
 	"productName": "Homie",
-	"version": "1.0.14",
+	"version": "1.2.0",
 	"description": "Minimal bookmark browser",
 	"license": "MIT",
 	"author": {
@@ -9,33 +9,23 @@
 		"email": "jns.johansson@gmail.com",
 		"url": "https://jonasjohansson.se/"
 	},
-	"main": "index.js",
+	"main": "main.js",
 	"dependencies": {
 		"electron-about-window": "^1.13.4",
+		"electron-context-menu": "^3.1.1",
 		"electron-dl": "^3.0.1",
 		"electron-store": "^8.0.0",
 		"event-emitter-es6": "^1.1.5",
 		"favicon-url": "0.0.5",
-		"random-fake-useragent": "^0.1.0",
+		"random-fake-useragent": "^0.0.1",
 		"random-useragent": "^0.5.0"
 	},
 	"devDependencies": {
-		"electron": "^12.0.11",
-		"electron-builder": "^22.10.5"
+		"electron": "^13.1.2",
+		"electron-builder": "^22.11.7"
 	},
 	"scripts": {
-		"dist": "node build.js -mw"
-	},
-	"build": {
-		"appId": "se.jonasjohansson.homie",
-		"mac": {
-			"category": "public.app-category.utilities"
-		},
-		"dmg": {
-			"title": "Homie"
-		},
-		"extraFiles": [
-			"extensions/**/*"
-		]
+		"dist": "node build.js -mw",
+		"start": "electron ."
 	}
 }

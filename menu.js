@@ -1,4 +1,5 @@
 'use strict';
+const { ipcMain } = require('electron');
 const electron = require('electron');
 const config = require('./config');
 const lookup = require('./lookup');
@@ -10,13 +11,7 @@ const appName = app.name;
 let oldWin;
 
 function sendAction(action, arg = null) {
-	let win = BrowserWindow.getFocusedWindow();
-	if (win === null) {
-		win = oldWin === null ? BrowserWindow.getAllWindows()[0] : oldWin;
-	} else {
-		oldWin = win;
-	}
-	win.webContents.send(action, arg);
+	app.emit(action, arg);
 }
 
 const appMenu = [
@@ -53,18 +48,11 @@ const appMenu = [
 	{ type: 'separator' },
 	{
 		label: 'Toggle Nav',
-		accelerator: 'CommandOrControl+Shift+N',
+		accelerator: 'Cmd+Shift+N',
 		click() {
 			sendAction('toggleNav');
 		},
 	},
-	// {
-	// 	label: 'Toggle Hidden',
-	// 	accelerator: 'CommandOrControl+Shift+H',
-	// 	click() {
-	// 		sendAction('toggleHidden');
-	// 	}
-	// },
 	{ type: 'separator' },
 	{ role: 'hide' },
 	{ role: 'hideothers' },
@@ -76,35 +64,35 @@ const appMenu = [
 const bookmarkMenu = [
 	{
 		label: 'Reload',
-		accelerator: 'CommandOrControl+R',
+		accelerator: 'Cmd+R',
 		click() {
 			sendAction('reload');
 		},
 	},
 	{
 		label: 'Reload All',
-		accelerator: 'CommandOrControl+Shift+R',
+		accelerator: 'Cmd+Shift+R',
 		click() {
 			sendAction('reloadAll');
 		},
 	},
 	{
 		label: 'Back',
-		// accelerator: 'CommandOrControl+Left',
+		// accelerator: 'Cmd+Left',
 		click() {
 			sendAction('back');
 		},
 	},
 	{
 		label: 'Forward',
-		// accelerator: 'CommandOrControl+Right',
+		// accelerator: 'Cmd+Right',
 		click() {
 			sendAction('forward');
 		},
 	},
 	{
 		label: 'Save',
-		accelerator: 'CommandOrControl+S',
+		accelerator: 'Cmd+S',
 		click() {
 			sendAction('save');
 		},
@@ -118,14 +106,14 @@ const bookmarkMenu = [
 	},
 	{
 		label: 'Zoom In',
-		accelerator: 'CommandOrControl++',
+		accelerator: 'Cmd++',
 		click() {
 			sendAction('zoom-in');
 		},
 	},
 	{
 		label: 'Zoom Out',
-		accelerator: 'CommandOrControl+-',
+		accelerator: 'Cmd+-',
 		click() {
 			sendAction('zoom-out');
 		},
@@ -133,30 +121,24 @@ const bookmarkMenu = [
 	{ type: 'separator' },
 ];
 
-var step = 0;
+let bookmarkCounter = 0;
 for (const bookmarkData of config.get('bookmarks')) {
-	let i = ++step;
-	if (i === 9) i = 0;
+	const acc =
+		bookmarkCounter < 9
+			? `CommandOrControl+${bookmarkCounter + 1}`
+			: `CommandOrControl+Option+${bookmarkCounter - 9}`;
+	const i = bookmarkCounter;
 	bookmarkMenu.push({
 		label: bookmarkData.url,
-		accelerator: `CommandOrControl+${i}`,
+		accelerator: acc,
 		click() {
-			sendAction('showBookmark', i - 1);
+			sendAction('showBookmark', i);
 		},
 	});
+	bookmarkCounter++;
 }
 
-const windowMenu = [
-	{ role: 'minimize' },
-	{ role: 'close' },
-	// {
-	//   label: "New Window",
-	//   accelerator: "CommandOrControl+N",
-	//   click() {
-	//     sendAction("createNew");
-	//   }
-	// }
-];
+const windowMenu = [{ role: 'minimize' }, { role: 'close' }];
 
 const helpMenu = [
 	{
