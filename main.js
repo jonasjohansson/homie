@@ -1,12 +1,6 @@
 'use strict';
 const electron = require('electron');
-const {
-	app,
-	session,
-	BrowserWindow,
-	BrowserView,
-	ipcMain,
-} = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain } = require('electron');
 const { download } = require('electron-dl');
 const tray = require('./tray');
 const menu = require('./menu');
@@ -21,6 +15,7 @@ app.allowRendererProcessReuse = true;
 let views = [];
 let prevView = null;
 let currView = null;
+let currViewIndex = null;
 let unreadIndex = 0;
 
 const authUrl = `file://${__dirname}/index.html`;
@@ -31,6 +26,12 @@ const authUrl = `file://${__dirname}/index.html`;
 	createWindow();
 	createViews();
 	showBookmark(0);
+	tray.create(win);
+	win.loadURL(authUrl, { userAgent: config.get('useragent') });
+	win.on('trayClick', function () {
+		showBookmark(unreadIndex);
+	});
+	win.on('resize', setAllBounds);
 	win.show();
 })();
 
@@ -44,15 +45,11 @@ const createWindow = async () => {
 		height: lastWindowState.height,
 		minWidth: 400,
 		minHeight: 200,
-		titleBarStyle: 'hidden',
+		titleBarStyle: 'hiddenInset',
+		paintWhenInitiallyHidden: false,
 		webPreferences: {
 			spellcheck: true,
 		},
-	});
-	win.loadURL(authUrl, { userAgent: config.get('useragent') });
-	tray.create(win);
-	win.on('trayClick', function () {
-		showBookmark(unreadIndex);
 	});
 };
 
@@ -60,21 +57,16 @@ const createViews = () => {
 	config.get('bookmarks').forEach((bookmarkData, bookmarkIndex) => {
 		const view = new BrowserView();
 		win.addBrowserView(view);
-		view.setBounds({
-			x: 0,
-			y: 0,
-			width: win.getBounds().width,
-			height: win.getBounds().height,
-		});
-
 		view.setAutoResize({
 			width: true,
-			height: true,
+			height: false,
+			horizontal: true,
+			vertical: true,
 		});
-
+		setBounds(view);
 		view.webContents.loadURL(bookmarkData.url);
+		view.webContents.setAudioMuted(bookmarkData.isMuted);
 		view.webContents.userAgent = config.get('useragent');
-
 		view.webContents.on('did-finish-load', () => {
 			contextMenu({
 				window: view,
@@ -86,15 +78,9 @@ const createViews = () => {
 					saveImageAs: 'Save Image As…',
 					copyLink: 'Copy Link',
 					saveLinkAs: 'Save Link As…',
-					// inspect: 'Inspect Element',
 				},
-				// prepend: (defaultActions, params, browserWindow) => [
-				// 	{ label: 'Test', visible: true },
-				// ],
-				append: () => {},
 				showCopyImageAddress: true,
 				showSaveImageAs: true,
-				// showInspectElement: true,
 				showSaveLinkAs: true,
 				cut: true,
 				copy: true,
@@ -103,7 +89,6 @@ const createViews = () => {
 				saveImageAs: true,
 				copyLink: true,
 				saveLinkAs: true,
-				// inspect: true,
 			});
 		});
 
@@ -133,6 +118,19 @@ const createViews = () => {
 	});
 };
 
+const setAllBounds = () => {
+	for (let view of views) setBounds(view);
+};
+
+const setBounds = (view) => {
+	view.setBounds({
+		x: 0,
+		y: 0,
+		width: win.getBounds().width,
+		height: win.getBounds().height,
+	});
+};
+
 const pageTitleUpdated = (messageCount) => {
 	app.badgeCount = messageCount;
 	tray.setBadge(app.badgeCount);
@@ -140,8 +138,11 @@ const pageTitleUpdated = (messageCount) => {
 
 const showBookmark = (index) => {
 	currView = views[index];
+	currViewIndex = index;
 	if (prevView !== null) win.removeBrowserView(prevView);
 	win.addBrowserView(currView);
+	// if (currView !== prevView) win.setTopBrowserView(currView);
+	setBounds(currView);
 	prevView = currView;
 };
 
@@ -163,6 +164,41 @@ app.on('reload', () => {
 	currView.webContents.reload();
 });
 
-ipcMain.on(`display-app-menu`, function (e, args) {
-	console.log(args);
+app.on('reloadAll', () => {
+	for (let view of views) view.webContents.reload();
+});
+
+app.on('back', () => {
+	currView.webContents.back();
+});
+
+app.on('forward', () => {
+	currView.webContents.forward();
+});
+
+app.on('zoomIn', () => {
+	currView.webContents.setZoomLevel(currView.webContents.getZoomLevel() + 0.5);
+});
+
+app.on('zoomOut', () => {
+	currView.webContents.setZoomLevel(currView.webContents.getZoomLevel() - 0.5);
+});
+
+app.on('resetZoom', () => {
+	currView.webContents.setZoomLevel(0);
+});
+
+app.on('save', () => {
+	if (currViewIndex === null) return;
+	const bookmarkData = config.get('bookmarks');
+	bookmarkData[currViewIndex].url = currView.webContents.getURL();
+	config.set('bookmarks', bookmarkData);
+});
+
+app.on('saveAll', () => {
+	const bookmarkData = config.get('bookmarks');
+	views.forEach((view, i) => {
+		bookmarkData[i].url = view.webContents.getURL();
+	});
+	config.set('bookmarks', bookmarkData);
 });

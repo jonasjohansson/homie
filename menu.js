@@ -8,8 +8,6 @@ const openAboutWindow = require('electron-about-window').default;
 const { app, BrowserWindow, shell } = electron;
 const appName = app.name;
 
-let oldWin;
-
 function sendAction(action, arg = null) {
 	app.emit(action, arg);
 }
@@ -78,14 +76,14 @@ const bookmarkMenu = [
 	},
 	{
 		label: 'Back',
-		// accelerator: 'Cmd+Left',
+		accelerator: 'Cmd+Shift+Left',
 		click() {
 			sendAction('back');
 		},
 	},
 	{
 		label: 'Forward',
-		// accelerator: 'Cmd+Right',
+		accelerator: 'Cmd+Shift+Right',
 		click() {
 			sendAction('forward');
 		},
@@ -97,25 +95,32 @@ const bookmarkMenu = [
 			sendAction('save');
 		},
 	},
+	{
+		label: 'Save All',
+		accelerator: 'Cmd+Shift+S',
+		click() {
+			sendAction('saveAll');
+		},
+	},
 	{ type: 'separator' },
 	{
 		label: 'Reset Zoom',
 		click() {
-			sendAction('reset-zoom');
+			sendAction('resetZoom');
 		},
 	},
 	{
 		label: 'Zoom In',
-		accelerator: 'Cmd++',
+		accelerator: 'Cmd+Shift++',
 		click() {
-			sendAction('zoom-in');
+			sendAction('zoomIn');
 		},
 	},
 	{
 		label: 'Zoom Out',
-		accelerator: 'Cmd+-',
+		accelerator: 'Cmd+Shift+-',
 		click() {
-			sendAction('zoom-out');
+			sendAction('zoomOut');
 		},
 	},
 	{ type: 'separator' },

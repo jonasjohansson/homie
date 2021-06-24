@@ -29,9 +29,6 @@ module.exports = new Store({
 				url: 'https://drive.google.com/drive/',
 			},
 			{
-				url: 'https://docs.google.com/document/u/0/',
-			},
-			{
 				url: 'https://docs.google.com/spreadsheets/u/0',
 			},
 			{
