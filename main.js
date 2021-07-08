@@ -11,7 +11,7 @@ download.directory = app.getPath('desktop');
 
 let win;
 app.disableHardwareAcceleration();
-app.allowRendererProcessReuse = true;
+// app.allowRendererProcessReeuse = true;
 let views = [];
 let prevView = null;
 let currView = null;
@@ -66,6 +66,7 @@ const createViews = () => {
 		setBounds(view);
 		view.webContents.loadURL(bookmarkData.url);
 		view.webContents.setAudioMuted(bookmarkData.isMuted);
+		console.log(view.webContents.isAudioMuted());
 		view.webContents.userAgent = config.get('useragent');
 		view.webContents.on('did-finish-load', () => {
 			contextMenu({
