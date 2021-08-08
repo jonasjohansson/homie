@@ -2,7 +2,6 @@
 const { ipcMain } = require('electron');
 const electron = require('electron');
 const config = require('./config');
-const lookup = require('./lookup');
 const openAboutWindow = require('electron-about-window').default;
 
 const { app, BrowserWindow, shell } = electron;
@@ -164,7 +163,6 @@ const helpMenu = [
 		label: 'Reset',
 		click() {
 			config.clear();
-			lookup.clear();
 		},
 	},
 ];
