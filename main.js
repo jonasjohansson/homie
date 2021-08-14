@@ -11,7 +11,6 @@ download.directory = app.getPath('desktop');
 
 let win;
 app.disableHardwareAcceleration();
-// app.allowRendererProcessReeuse = true;
 let views = [];
 let prevView = null;
 let currView = null;
@@ -28,6 +27,7 @@ const authUrl = `file://${__dirname}/index.html`;
 	showBookmark(0);
 	tray.create(win);
 	win.loadURL(authUrl, { userAgent: config.get('useragent') });
+	app.userAgentFallback = config.get('useragent');
 	win.on('trayClick', function () {
 		showBookmark(unreadIndex);
 	});
@@ -132,9 +132,10 @@ const setBounds = (view) => {
 	});
 };
 
+// https://www.electronjs.org/docs/api/app#appbadgecount-linux-macos
 const pageTitleUpdated = (messageCount) => {
-	app.badgeCount = messageCount;
-	tray.setBadge(app.badgeCount);
+	app.setBadgeCount(messageCount);
+	tray.setBadge(messageCount);
 };
 
 const showBookmark = (index) => {
