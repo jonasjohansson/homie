@@ -16,23 +16,45 @@ let prevView = null;
 let currView = null;
 let currViewIndex = null;
 let unreadIndex = 0;
+let onlineChecker;
+let isOnline = null;
 
-const authUrl = `file://${__dirname}/index.html`;
+const filePath = `file://${__dirname}`;
+const appUrl = `${filePath}/index.html`;
+const offlineUrl = `${filePath}/offline.html`;
 
 (async () => {
 	await app.whenReady();
 	electron.Menu.setApplicationMenu(menu);
 	createWindow();
-	createViews();
-	showBookmark(0);
-	tray.create(win);
-	win.loadURL(authUrl, { userAgent: config.get('useragent') });
-	app.userAgentFallback = config.get('useragent');
-	win.on('trayClick', function () {
-		showBookmark(unreadIndex);
-	});
-	win.on('resize', setAllBounds);
-	win.show();
+
+	function init() {
+		win.loadURL(appUrl, { userAgent: config.get('useragent') });
+		app.userAgentFallback = config.get('useragent');
+		tray.create(win);
+		createViews();
+		showBookmark(0);
+		win.on('trayClick', function () {
+			showBookmark(unreadIndex);
+		});
+		win.on('resize', setAllBounds);
+		win.show();
+	}
+
+	onlineChecker = setInterval(function () {
+		dns.resolve('www.google.com', function (err, addr) {
+			if (err) {
+				if (isOnline === null) {
+					win.loadURL(offlineUrl);
+					// console.log('No Internet connection!');
+					isOnline = false;
+				}
+			} else {
+				clearInterval(onlineChecker);
+				init();
+			}
+		});
+	}, 1000);
 })();
 
 const createWindow = async () => {
@@ -147,6 +169,9 @@ const showBookmark = (index) => {
 	setBounds(currView);
 	prevView = currView;
 };
+
+const dns = require('dns');
+let isConnected = false;
 
 app.setAsDefaultProtocolClient('homie');
 
