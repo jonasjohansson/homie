@@ -158,7 +158,13 @@ const helpMenu = [
 		},
 	},
 	{ type: 'separator' },
-	{ role: 'toggledevtools' },
+	// {
+	// 	label: 'Toggle Developer Tools',
+	// 	accelerator: 'Cmd+Shift+T',
+	// 	click() {
+	// 		sendAction('toggle-developer-tools');
+	// 	},
+	// },
 	{
 		label: 'Reset',
 		click() {

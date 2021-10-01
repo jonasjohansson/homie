@@ -1,5 +1,6 @@
 'use strict';
 const electron = require('electron');
+const dns = require('dns');
 const { app, BrowserWindow, BrowserView, ipcMain } = require('electron');
 const { download } = require('electron-dl');
 const tray = require('./tray');
@@ -9,52 +10,30 @@ const contextMenu = require('electron-context-menu');
 
 download.directory = app.getPath('desktop');
 
-let win;
+let win = null;
 app.disableHardwareAcceleration();
 let views = [];
 let prevView = null;
 let currView = null;
 let currViewIndex = null;
 let unreadIndex = 0;
-let onlineChecker;
-let isOnline = null;
-
 const filePath = `file://${__dirname}`;
 const appUrl = `${filePath}/index.html`;
-const offlineUrl = `${filePath}/offline.html`;
 
 (async () => {
 	await app.whenReady();
 	electron.Menu.setApplicationMenu(menu);
 	createWindow();
-
-	function init() {
-		win.loadURL(appUrl, { userAgent: config.get('useragent') });
-		app.userAgentFallback = config.get('useragent');
-		tray.create(win);
-		createViews();
-		showBookmark(0);
-		win.on('trayClick', function () {
-			showBookmark(unreadIndex);
-		});
-		win.on('resize', setAllBounds);
-		win.show();
-	}
-
-	onlineChecker = setInterval(function () {
-		dns.resolve('www.google.com', function (err, addr) {
-			if (err) {
-				if (isOnline === null) {
-					win.loadURL(offlineUrl);
-					// console.log('No Internet connection!');
-					isOnline = false;
-				}
-			} else {
-				clearInterval(onlineChecker);
-				init();
-			}
-		});
-	}, 1000);
+	win.loadURL(appUrl, { userAgent: config.get('useragent') });
+	app.userAgentFallback = config.get('useragent');
+	tray.create(win);
+	createViews();
+	showBookmark(0);
+	win.on('trayClick', function () {
+		showBookmark(unreadIndex);
+	});
+	win.on('resize', setAllBounds);
+	win.show();
 })();
 
 const createWindow = async () => {
@@ -88,7 +67,6 @@ const createViews = () => {
 		setBounds(view);
 		view.webContents.loadURL(bookmarkData.url);
 		view.webContents.setAudioMuted(bookmarkData.isMuted);
-		console.log(view.webContents.isAudioMuted());
 		view.webContents.userAgent = config.get('useragent');
 		view.webContents.on('did-finish-load', () => {
 			contextMenu({
@@ -165,13 +143,9 @@ const showBookmark = (index) => {
 	currViewIndex = index;
 	if (prevView !== null) win.removeBrowserView(prevView);
 	win.addBrowserView(currView);
-	// if (currView !== prevView) win.setTopBrowserView(currView);
 	setBounds(currView);
 	prevView = currView;
 };
-
-const dns = require('dns');
-let isConnected = false;
 
 app.setAsDefaultProtocolClient('homie');
 
@@ -196,11 +170,15 @@ app.on('reloadAll', () => {
 });
 
 app.on('back', () => {
-	currView.webContents.back();
+	if (currView.webContents.canGoBack()) {
+		currView.webContents.goBack();
+	}
 });
 
 app.on('forward', () => {
-	currView.webContents.forward();
+	if (currView.webContents.canGoForward()) {
+		currView.webContents.goForward();
+	}
 });
 
 app.on('zoomIn', () => {
