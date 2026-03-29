@@ -18,3 +18,4 @@ node_modules/
 
 # lock
 package-lock.json
+.claude/
