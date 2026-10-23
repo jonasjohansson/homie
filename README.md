@@ -21,7 +21,6 @@ to Login Items. `scripts/install.sh --check` reports what is out of date.
 `skynet/config/homie/bookmarks.yml`. Edits apply live.
 
 ```yaml
-sidebar_width: 180
 groups:
   - name: Homie
     tabs:
@@ -49,6 +48,11 @@ on each Mac.
 | Cmd+Shift+C | copy the page address |
 | Cmd+Shift+O | open the page in the default browser |
 | Cmd+= Cmd+- Cmd+0 | zoom, remembered per site |
+| Cmd+N | add a page (URL from the clipboard if there is one) |
+| Cmd+D | pin the page the tab is showing now |
+| Shift-click, Cmd+Option+1…9 | open a tab on the right, side by side |
+| Cmd+\\ | close the split |
+| Cmd+Shift+S | hide or show the sidebar (drag its edge to resize) |
 | Cmd+, | open bookmarks.yml |
 
 Links that ask for a new window open in the default browser; Homie is not for

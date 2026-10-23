@@ -2,13 +2,18 @@ import AppKit
 import WebKit
 import UserNotifications
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUserNotificationCenterDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUserNotificationCenterDelegate, NSSplitViewDelegate {
     private var window: NSWindow!
     private var sidebar: SidebarView!
-    private var sidebarWidth: NSLayoutConstraint!
-    private var content: NSView!
+    private var outer: NSSplitView!
+    private var sidebarView: NSView!
+    private var split: NSSplitView!
+    private var leftPane: NSView!
+    private var rightPane: NSView!
     private var items: [TabItem] = []
-    private var current: TabItem?
+    private var current: TabItem?          // left pane
+    private var secondary: TabItem?        // right pane, when split
+    private var sidebarHidden = UserDefaults.standard.bool(forKey: "sidebarHidden")
     private var watcher: ConfigWatcher?
     private var statusItem: NSStatusItem?
     private var tabMenu: NSMenu!
@@ -61,29 +66,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
 
         sidebar = SidebarView()
         sidebar.translatesAutoresizingMaskIntoConstraints = false
-        sidebar.onSelect = { [weak self] item in self?.select(item) }
+        sidebar.onSelect = { [weak self] item, wantsSplit in
+            guard let self else { return }
+            if wantsSplit { self.select(item, pane: .right) }
+            else { self.select(item, pane: self.focusedPane) }
+        }
         effect.addSubview(sidebar)
 
-        content = NSView()
-        content.translatesAutoresizingMaskIntoConstraints = false
-        content.wantsLayer = true
-        root.addSubview(content)
+        split = NSSplitView()
+        split.isVertical = true
+        split.dividerStyle = .thin
+        split.delegate = self
+        split.translatesAutoresizingMaskIntoConstraints = false
+        leftPane = NSView(); leftPane.wantsLayer = true
+        rightPane = NSView(); rightPane.wantsLayer = true
+        split.addArrangedSubview(leftPane)
+        let content: NSView = split
 
-        sidebarWidth = effect.widthAnchor.constraint(equalToConstant: 180)
+        // Outer split: sidebar | content. Drag the edge to resize, width remembered per machine.
+        outer = NSSplitView()
+        outer.isVertical = true
+        outer.dividerStyle = .thin
+        outer.delegate = self
+        outer.translatesAutoresizingMaskIntoConstraints = false
+        outer.addArrangedSubview(effect)
+        outer.addArrangedSubview(content)
+        outer.setHoldingPriority(NSLayoutConstraint.Priority(260), forSubviewAt: 0)
+        outer.setHoldingPriority(NSLayoutConstraint.Priority(250), forSubviewAt: 1)
+        outer.autosaveName = "Homie.sidebar"
+        root.addSubview(outer)
+        effect.setContentHuggingPriority(.defaultLow, for: .horizontal)
         NSLayoutConstraint.activate([
-            effect.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            effect.topAnchor.constraint(equalTo: root.topAnchor),
-            effect.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            sidebarWidth,
+            outer.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            outer.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            outer.topAnchor.constraint(equalTo: root.topAnchor),
+            outer.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             sidebar.leadingAnchor.constraint(equalTo: effect.leadingAnchor),
             sidebar.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
             sidebar.topAnchor.constraint(equalTo: effect.topAnchor),
             sidebar.bottomAnchor.constraint(equalTo: effect.bottomAnchor),
-            content.leadingAnchor.constraint(equalTo: effect.trailingAnchor),
-            content.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            content.topAnchor.constraint(equalTo: root.topAnchor),
-            content.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
+        sidebarView = effect
+        if effect.frame.width == 0 { outer.setPosition(180, ofDividerAt: 0) }
+        effect.isHidden = sidebarHidden
     }
 
     // MARK: config
@@ -97,7 +122,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
             if items.isEmpty { showConfigError(error) }
             return
         }
-        sidebarWidth.constant = cfg.sidebarWidth
 
         var existing = Dictionary(uniqueKeysWithValues: items.map { ($0.spec.id, $0) })
         var next: [TabItem] = []
@@ -117,14 +141,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
         for (_, gone) in existing {
             gone.webView?.removeFromSuperview()
             if gone === current { current = nil }
+            if gone === secondary { closeSplit() }
         }
         items = next
         sidebar.items = items
         rebuildTabMenu()
 
         if current == nil || !items.contains(where: { $0 === current }) {
-            if let first = items.first { self.select(first) }
-        } else if select, let current { self.select(current) }
+            if let first = items.first { self.select(first, pane: .left) }
+        } else if select, let current { self.select(current, pane: .left) }
         itemChanged()
     }
 
@@ -142,41 +167,105 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
 
     // MARK: selection
 
-    private func select(_ item: TabItem) {
-        let wv = item.ensureWebView()
-        if wv.superview == nil {
-            wv.translatesAutoresizingMaskIntoConstraints = false
-            content.addSubview(wv)
-            NSLayoutConstraint.activate([
-                wv.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-                wv.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-                wv.topAnchor.constraint(equalTo: content.topAnchor),
-                wv.bottomAnchor.constraint(equalTo: content.bottomAnchor),
-            ])
+    enum Pane { case left, right }
+
+    private var focusedPane: Pane {
+        guard secondary != nil, let r = window.firstResponder as? NSView else { return .left }
+        return r.isDescendant(of: rightPane) ? .right : .left
+    }
+
+    private func place(_ wv: WKWebView, in pane: NSView) {
+        if wv.superview === pane { return }
+        wv.removeFromSuperview()
+        wv.translatesAutoresizingMaskIntoConstraints = false
+        pane.addSubview(wv)
+        NSLayoutConstraint.activate([
+            wv.leadingAnchor.constraint(equalTo: pane.leadingAnchor),
+            wv.trailingAnchor.constraint(equalTo: pane.trailingAnchor),
+            wv.topAnchor.constraint(equalTo: pane.topAnchor),
+            wv.bottomAnchor.constraint(equalTo: pane.bottomAnchor),
+        ])
+    }
+
+    private func select(_ item: TabItem, pane: Pane) {
+        if pane == .right {
+            if item === current {
+                // The left page asked to go right: swap, so both panes stay distinct.
+                if let s = secondary { current = s; place(s.ensureWebView(), in: leftPane) }
+                else { return }
+            }
+            if rightPane.superview == nil {
+                split.addArrangedSubview(rightPane)
+                split.setPosition(split.bounds.width / 2, ofDividerAt: 0)
+            }
+            secondary = item
+        } else {
+            if item === secondary { closeSplit(keepRight: true) }
+            current = item
         }
-        for other in items where other !== item { other.webView?.isHidden = true }
-        wv.isHidden = false
-        current = item
-        sidebar.selected = item
+        let wv = item.ensureWebView()
+        place(wv, in: pane == .right ? rightPane : leftPane)
+        for other in items where other !== current && other !== secondary { other.webView?.isHidden = true }
+        current?.webView?.isHidden = false
+        secondary?.webView?.isHidden = false
+        sidebar.selected = current
+        sidebar.secondary = secondary
         sidebar.needsDisplay = true
         window.makeFirstResponder(wv)
     }
 
-    private func select(index: Int) {
+    /// Ends the split. With keepRight the right page becomes the single page.
+    private func closeSplit(keepRight: Bool = false) {
+        guard let s = secondary else { return }
+        secondary = nil
+        if keepRight { current = s; place(s.ensureWebView(), in: leftPane) }
+        else { s.webView?.isHidden = true }
+        rightPane.removeFromSuperview()
+        sidebar.secondary = nil
+        sidebar.needsDisplay = true
+    }
+
+    private func select(index: Int, pane: Pane = .left) {
         guard items.indices.contains(index) else { return }
-        select(items[index])
+        select(items[index], pane: pane)
     }
 
     private func step(_ delta: Int) {
         guard let current, let i = items.firstIndex(where: { $0 === current }), !items.isEmpty else { return }
-        select(items[(i + delta + items.count) % items.count])
+        select(items[(i + delta + items.count) % items.count], pane: .left)
     }
+
+    @objc private func toggleSidebar() {
+        sidebarHidden.toggle()
+        UserDefaults.standard.set(sidebarHidden, forKey: "sidebarHidden")
+        sidebarView.isHidden = sidebarHidden
+    }
+
+    @objc private func closeSplitAction() { closeSplit() }
+
+    @objc private func splitTab(_ sender: NSMenuItem) { select(index: sender.tag, pane: .right) }
 
     private func itemChanged() {
         sidebar.needsDisplay = true
         let total = items.reduce(0) { $0 + $1.unread }
         NSApp.dockTile.badgeLabel = total > 0 ? "\(total)" : nil
         statusItem?.button?.image = NSImage(named: total > 0 ? "trayIconUnread" : "trayIcon")
+    }
+
+    // MARK: NSSplitViewDelegate (sidebar bounds)
+
+    func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
+        splitView === outer ? 140 : 300
+    }
+
+    func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
+        splitView === outer ? 420 : proposedMaximumPosition - 300
+    }
+
+    func splitView(_ splitView: NSSplitView, canCollapseSubview subview: NSView) -> Bool { false }
+
+    func splitView(_ splitView: NSSplitView, shouldAdjustSizeOfSubview view: NSView) -> Bool {
+        splitView === outer ? view !== sidebarView : true
     }
 
     // MARK: status item
@@ -194,7 +283,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
     @objc private func statusClicked() {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        if let unread = items.first(where: { $0.unread > 0 }) { select(unread) }
+        if let unread = items.first(where: { $0.unread > 0 }) { select(unread, pane: .left) }
     }
 
     // MARK: notifications
@@ -206,7 +295,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler handler: @escaping () -> Void) {
         if let id = response.notification.request.content.userInfo["tab"] as? String,
            let item = items.first(where: { $0.spec.id == id }) {
-            select(item)
+            select(item, pane: .left)
         }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -269,6 +358,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
 
     private func rebuildTabMenu() {
         tabMenu.removeAllItems()
+        tabMenu.addItem(withTitle: "Add Page…", action: #selector(addPage), keyEquivalent: "n")
+        tabMenu.addItem(withTitle: "Pin This Page", action: #selector(pinCurrent), keyEquivalent: "d")
+        tabMenu.addItem(.separator())
         tabMenu.addItem(withTitle: "Reload", action: #selector(reloadTab), keyEquivalent: "r")
         tabMenu.addItem(withTitle: "Reset to Pinned Page", action: #selector(resetTab), keyEquivalent: "R")
         tabMenu.addItem(withTitle: "Back", action: #selector(goBack), keyEquivalent: "[")
@@ -285,11 +377,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
         let prev = tabMenu.addItem(withTitle: "Previous Tab", action: #selector(prevTab), keyEquivalent: "\t")
         prev.keyEquivalentModifierMask = [.control, .shift]
         tabMenu.addItem(.separator())
+        let side = tabMenu.addItem(withTitle: "Hide Sidebar", action: #selector(toggleSidebar), keyEquivalent: "s")
+        side.keyEquivalentModifierMask = [.command, .shift]
+        let unsplit = tabMenu.addItem(withTitle: "Close Split", action: #selector(closeSplitAction), keyEquivalent: "\\")
+        unsplit.keyEquivalentModifierMask = [.command]
+        tabMenu.addItem(.separator())
         for (i, item) in items.enumerated() {
             let key = i < 9 ? "\(i + 1)" : ""
             let mi = tabMenu.addItem(withTitle: item.spec.resolvedLabel, action: #selector(selectTab(_:)), keyEquivalent: key)
             mi.tag = i
+            // Hold Option: the same item opens the page on the right.
+            let alt = tabMenu.addItem(withTitle: "Open \(item.spec.resolvedLabel) in Split", action: #selector(splitTab(_:)), keyEquivalent: key)
+            alt.keyEquivalentModifierMask = [.command, .option]
+            alt.isAlternate = true
+            alt.tag = i
         }
+    }
+
+    private var groupNames: [String] {
+        var seen: [String] = []
+        for item in items where !seen.contains(item.groupName) { seen.append(item.groupName) }
+        return seen.isEmpty ? ["Homie"] : seen
+    }
+
+    @objc private func addPage() {
+        var url = ""
+        if let s = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines),
+           s.hasPrefix("http"), URL(string: s)?.host != nil { url = s }
+        AddPagePanel.run(url: url, label: "", groups: groupNames, defaultGroup: current?.groupName)
+    }
+
+    @objc private func pinCurrent() {
+        guard let current, let url = current.webView?.url?.absoluteString else { return }
+        let title = current.webView?.title ?? ""
+        AddPagePanel.run(url: url, label: title, groups: groupNames, defaultGroup: current.groupName)
     }
 
     @objc private func openConfig() { NSWorkspace.shared.open(ConfigStore.url) }
@@ -304,7 +425,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
     @objc private func zoomReset() { current?.zoom(by: 0) }
     @objc private func nextTab() { step(1) }
     @objc private func prevTab() { step(-1) }
-    @objc private func selectTab(_ sender: NSMenuItem) { select(index: sender.tag) }
+    @objc private func selectTab(_ sender: NSMenuItem) { select(index: sender.tag, pane: .left) }
     @objc private func copyURL() {
         guard let url = current?.webView?.url?.absoluteString else { return }
         NSPasteboard.general.clearContents()

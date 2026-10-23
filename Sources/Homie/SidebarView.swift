@@ -11,7 +11,9 @@ final class SidebarView: NSView {
 
     var items: [TabItem] = [] { didSet { needsDisplay = true } }
     var selected: TabItem?
-    var onSelect: ((TabItem) -> Void)?
+    var secondary: TabItem?
+    /// split is true for a Shift- or Option-click: open on the right.
+    var onSelect: ((TabItem, Bool) -> Void)?
 
     static let rowHeight: CGFloat = 28
     static let headerHeight: CGFloat = 24
@@ -58,6 +60,11 @@ final class SidebarView: NSView {
                 if item === selected {
                     NSColor.unemphasizedSelectedContentBackgroundColor.setFill()
                     NSBezierPath(roundedRect: r, xRadius: 5, yRadius: 5).fill()
+                } else if item === secondary {
+                    NSColor.unemphasizedSelectedContentBackgroundColor.setStroke()
+                    let p = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), xRadius: 5, yRadius: 5)
+                    p.lineWidth = 1
+                    p.stroke()
                 }
                 r = r.insetBy(dx: 6, dy: 0)
                 let iconRect = NSRect(x: r.minX, y: r.midY - 8, width: 16, height: 16)
@@ -90,7 +97,8 @@ final class SidebarView: NSView {
         let p = convert(event.locationInWindow, from: nil)
         for row in rows {
             if case .tab(let item) = row.kind, row.frame.contains(p) {
-                onSelect?(item)
+                let split = !event.modifierFlags.intersection([.shift, .option]).isEmpty
+                onSelect?(item, split)
                 return
             }
         }
