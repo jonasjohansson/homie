@@ -100,9 +100,12 @@ export class Tab {
   }
 }
 
+// same registrable domain: mail.google.com, accounts.google.com and workspace.google.com are one site
+function site(u) { const h = new URL(u).hostname.split('.'); const n = h.length >= 3 && /^(co|com|org|net|ac|gov)$/.test(h[h.length - 2]) ? 3 : 2; return h.slice(-n).join('.'); }
 function sameSite(a, b) {
-  try { const x = new URL(a), y = new URL(b); return x.host === y.host; } catch { return a === b; }
+  try { return site(a) === site(b); } catch { return a === b; }
 }
+function isAuthHost(u) { try { return /(^|\.)(accounts\.google\.com|login\.microsoftonline\.com|login\.live\.com|appleid\.apple\.com|auth\.openai\.com|github\.com\/login)|^(login|signin|auth|accounts|sso|id)\./i.test(new URL(u).host); } catch { return false; } }
 
 export function resolveInput(text) {
   const t = text.trim();
@@ -342,6 +345,9 @@ export class TabManager {
         return { action: 'allow', overrideBrowserWindowOptions: { parent: this.win, autoHideMenuBar: true,
           webPreferences: { preload: PAGE_PRELOAD, sandbox: true, contextIsolation: true, partition: 'persist:homie' } } };
       }
+      // Arc keeps a pinned app inside its tab: a _blank link to the same site, or to a sign-in
+      // host (Google's "Sign in" on the logged-out landing page is one), loads in place.
+      if (tab.kind === 'pinned' && disposition === 'foreground-tab' && (sameSite(url, tab.url) || sameSite(url, tab.pinnedUrl) || isAuthHost(url))) { tab.load(url); return { action: 'deny' }; }
       this.open(url, { background: disposition === 'background-tab', after: tab });
       return { action: 'deny' };
     });
