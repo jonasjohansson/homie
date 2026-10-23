@@ -33,6 +33,9 @@ app.whenReady().then(async () => {
   }, { useSystemPicker: true });
   ses.setSpellCheckerLanguages(['en-US', 'sv']);
 
+  // start at login from the app itself; install.sh's System Events call hangs over ssh
+  if (app.isPackaged && !app.getLoginItemSettings().openAtLogin) app.setLoginItemSettings({ openAtLogin: true });
+
   const extensions = await setupExtensions(ses, () => mgr);
   const bookmarks = new Bookmarks(() => mgr?.syncBookmarks());
   mgr = new TabManager({ bookmarks, extensions });

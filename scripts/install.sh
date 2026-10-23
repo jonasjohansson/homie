@@ -55,14 +55,12 @@ else
   [ $running = 1 ] && open "$app"
 fi
 
-# --- login item -------------------------------------------------------------------
-if osascript -e 'tell application "System Events" to get the name of every login item' 2>/dev/null | grep -qw Homie; then
+# --- login item: the app registers itself on first launch (app.setLoginItemSettings);
+# this only reports, and only when System Events answers (it hangs over ssh).
+if osascript -e 'with timeout of 5 seconds' -e 'tell application "System Events" to get the name of every login item' -e 'end timeout' 2>/dev/null | grep -qw Homie; then
   say ok "login item"
-elif [ $CHECK = 1 ]; then
-  say DRIFT "Homie is not a login item"; drift=1
 else
-  osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"$app\", hidden:false}" >/dev/null
-  say added "login item"
+  say note "login item is set by Homie itself on its first launch"
 fi
 
 exit $drift
