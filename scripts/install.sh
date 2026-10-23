@@ -2,8 +2,8 @@
 # install.sh — build Homie, put it in ~/Applications, link the shared bookmarks,
 # add it to Login Items. Idempotent; --check reports without changing anything.
 #
-# Called by skynet/config/install.sh on every Mac, so a new machine gets Homie
-# with the rest of the shared config.
+# Called by skynet/config/install.sh on the Mac mini only (Jonas, 2026-10-23); the
+# MacBook does not get Homie. Run by hand elsewhere only on purpose.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 CHECK=0; [ "${1:-}" = --check ] && CHECK=1
