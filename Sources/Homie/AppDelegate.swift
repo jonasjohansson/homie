@@ -71,6 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
             if wantsSplit { self.select(item, pane: .right) }
             else { self.select(item, pane: self.focusedPane) }
         }
+        sidebar.onContextMenu = { [weak self] item in self?.contextMenu(for: item) ?? NSMenu() }
         effect.addSubview(sidebar)
 
         split = NSSplitView()
@@ -127,8 +128,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
         var next: [TabItem] = []
         for group in cfg.groups {
             for spec in group.tabs {
-                if let item = existing.removeValue(forKey: spec.id), item.spec == spec {
+                if let item = existing.removeValue(forKey: spec.id) {
+                    // Same URL: keep the web view, take the new label, mute and badge.
+                    let muteChanged = item.spec.muted != spec.muted
+                    item.spec = spec
                     item.groupName = group.name
+                    if muteChanged { item.applyMute() }
                     next.append(item)
                 } else {
                     let item = TabItem(spec: spec, group: group.name)
@@ -377,8 +382,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
         let prev = tabMenu.addItem(withTitle: "Previous Tab", action: #selector(prevTab), keyEquivalent: "\t")
         prev.keyEquivalentModifierMask = [.control, .shift]
         tabMenu.addItem(.separator())
-        let side = tabMenu.addItem(withTitle: "Hide Sidebar", action: #selector(toggleSidebar), keyEquivalent: "s")
-        side.keyEquivalentModifierMask = [.command, .shift]
+        tabMenu.addItem(withTitle: "Hide Sidebar", action: #selector(toggleSidebar), keyEquivalent: "s")
         let unsplit = tabMenu.addItem(withTitle: "Close Split", action: #selector(closeSplitAction), keyEquivalent: "\\")
         unsplit.keyEquivalentModifierMask = [.command]
         tabMenu.addItem(.separator())
@@ -411,6 +415,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
         guard let current, let url = current.webView?.url?.absoluteString else { return }
         let title = current.webView?.title ?? ""
         AddPagePanel.run(url: url, label: title, groups: groupNames, defaultGroup: current.groupName)
+    }
+
+    // MARK: sidebar context menu
+
+    private var menuTarget: TabItem?
+
+    private func contextMenu(for item: TabItem) -> NSMenu {
+        menuTarget = item
+        let m = NSMenu()
+        m.addItem(withTitle: "Open in Split", action: #selector(ctxSplit), keyEquivalent: "")
+        m.addItem(.separator())
+        let mute = m.addItem(withTitle: "Mute", action: #selector(ctxMute), keyEquivalent: "")
+        mute.state = item.muted ? .on : .off
+        let badge = m.addItem(withTitle: "Show Badge", action: #selector(ctxBadge), keyEquivalent: "")
+        badge.state = item.showsBadge ? .on : .off
+        m.addItem(withTitle: "Rename…", action: #selector(ctxRename), keyEquivalent: "")
+        m.addItem(.separator())
+        m.addItem(withTitle: "Reload", action: #selector(ctxReload), keyEquivalent: "")
+        m.addItem(withTitle: "Reset to Pinned Page", action: #selector(ctxReset), keyEquivalent: "")
+        m.addItem(withTitle: "Open in Browser", action: #selector(ctxBrowser), keyEquivalent: "")
+        m.addItem(withTitle: "Copy Address", action: #selector(ctxCopy), keyEquivalent: "")
+        m.addItem(.separator())
+        m.addItem(withTitle: "Remove from Sidebar", action: #selector(ctxRemove), keyEquivalent: "")
+        for mi in m.items { mi.target = self }
+        return m
+    }
+
+    private func write(_ work: () throws -> Void) {
+        do { try work() } catch { NSAlert(error: error).runModal() }
+    }
+
+    @objc private func ctxSplit() { if let t = menuTarget { select(t, pane: .right) } }
+    @objc private func ctxMute() {
+        guard let t = menuTarget else { return }
+        write { try ConfigStore.set(url: t.spec.url, key: "muted", value: t.muted ? nil : "true") }
+    }
+    @objc private func ctxBadge() {
+        guard let t = menuTarget else { return }
+        write { try ConfigStore.set(url: t.spec.url, key: "badge", value: t.showsBadge ? "false" : nil) }
+    }
+    @objc private func ctxRename() {
+        guard let t = menuTarget else { return }
+        let a = NSAlert()
+        a.messageText = "Rename"
+        a.addButton(withTitle: "OK"); a.addButton(withTitle: "Cancel")
+        let f = NSTextField(string: t.spec.resolvedLabel)
+        f.frame = NSRect(x: 0, y: 0, width: 260, height: 24)
+        a.accessoryView = f
+        a.window.initialFirstResponder = f
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        let v = f.stringValue.trimmingCharacters(in: .whitespaces)
+        write { try ConfigStore.set(url: t.spec.url, key: "label", value: v.isEmpty ? nil : ConfigStore.quoted(v)) }
+    }
+    @objc private func ctxReload() { menuTarget?.webView?.reload() }
+    @objc private func ctxReset() { menuTarget?.reset() }
+    @objc private func ctxBrowser() { if let u = menuTarget?.webView?.url ?? menuTarget?.pinnedURL { NSWorkspace.shared.open(u) } }
+    @objc private func ctxCopy() {
+        guard let u = menuTarget?.webView?.url?.absoluteString ?? menuTarget?.spec.url else { return }
+        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(u, forType: .string)
+    }
+    @objc private func ctxRemove() {
+        guard let t = menuTarget else { return }
+        write { try ConfigStore.remove(url: t.spec.url) }
     }
 
     @objc private func openConfig() { NSWorkspace.shared.open(ConfigStore.url) }

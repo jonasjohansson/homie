@@ -14,6 +14,7 @@ final class SidebarView: NSView {
     var secondary: TabItem?
     /// split is true for a Shift- or Option-click: open on the right.
     var onSelect: ((TabItem, Bool) -> Void)?
+    var onContextMenu: ((TabItem) -> NSMenu)?
 
     static let rowHeight: CGFloat = 28
     static let headerHeight: CGFloat = 24
@@ -89,6 +90,16 @@ final class SidebarView: NSView {
                 let size = label.size()
                 let labelRect = NSRect(x: r.minX + 24, y: r.midY - size.height / 2, width: maxW, height: size.height)
                 label.draw(with: labelRect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+            }
+        }
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        for row in rows {
+            if case .tab(let item) = row.kind, row.frame.contains(p), let menu = onContextMenu?(item) {
+                NSMenu.popUpContextMenu(menu, with: event, for: self)
+                return
             }
         }
     }

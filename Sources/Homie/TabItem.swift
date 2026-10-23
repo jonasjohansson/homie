@@ -4,7 +4,7 @@ import UserNotifications
 
 /// A pinned site: its spec, its lazily created web view, and its unread count.
 final class TabItem: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, WKDownloadDelegate {
-    let spec: TabSpec
+    var spec: TabSpec
     var groupName: String
     private(set) var webView: WKWebView?
     private var titleObservation: NSKeyValueObservation?
@@ -46,7 +46,7 @@ final class TabItem: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessa
         let ucc = WKUserContentController()
         ucc.add(self, name: "homie")
         ucc.addUserScript(WKUserScript(source: Scripts.notifications, injectionTime: .atDocumentStart, forMainFrameOnly: false))
-        if spec.muted == true {
+        if spec.muted == true && !TabItem.hasPageMute {
             ucc.addUserScript(WKUserScript(source: Scripts.mute, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         }
         cfg.userContentController = ucc
@@ -61,9 +61,21 @@ final class TabItem: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessa
         titleObservation = wv.observe(\.title, options: [.new]) { [weak self] wv, _ in
             self?.titleChanged(wv.title ?? "")
         }
-        wv.load(URLRequest(url: pinnedURL))
         webView = wv
+        applyMute()
+        wv.load(URLRequest(url: pinnedURL))
         return wv
+    }
+
+    /// WebKit's page mute (`_setPageMuted:`, the switch Safari's tab-audio button uses).
+    /// Not public API; checked for at runtime, with the JS shim as the fallback.
+    static let hasPageMute: Bool = WKWebView.instancesRespond(to: NSSelectorFromString("_setPageMuted:"))
+
+    var muted: Bool { spec.muted == true }
+
+    func applyMute() {
+        guard let webView, TabItem.hasPageMute else { return }
+        webView.setValue(muted ? 1 : 0, forKey: "_pageMuted")
     }
 
     private var zoomKey: String { "zoom:" + (pinnedURL.host ?? spec.url) }

@@ -107,35 +107,9 @@ final class ConfigWatcher {
 }
 
 extension ConfigStore {
-    /// Appends a tab to a group in the YAML by text, so comments and order survive.
-    /// A group that does not exist is added at the end.
-    static func append(url: String, label: String?, group: String) throws {
-        var lines = try String(contentsOf: self.url, encoding: .utf8).components(separatedBy: "\n")
-        if lines.last == "" { lines.removeLast() }
-        var entry = ["      - url: \(url)"]
-        if let label, !label.isEmpty { entry.append("        label: \(yamlQuoted(label))") }
-
-        var groupLine: Int? = nil
-        for (i, line) in lines.enumerated() where line.hasPrefix("  - name:") {
-            let name = line.dropFirst("  - name:".count).trimmingCharacters(in: .whitespaces)
-            if name.trimmingCharacters(in: CharacterSet(charactersIn: "\"'")) == group { groupLine = i }
-        }
-        if let g = groupLine {
-            var end = lines.count
-            for i in (g + 1)..<lines.count where lines[i].hasPrefix("  - name:") { end = i; break }
-            while end > g + 1, lines[end - 1].trimmingCharacters(in: .whitespaces).isEmpty { end -= 1 }
-            lines.insert(contentsOf: entry, at: end)
-        } else {
-            lines.append("  - name: \(yamlQuoted(group))")
-            lines.append("    tabs:")
-            lines.append(contentsOf: entry)
-        }
-        let real = self.url.resolvingSymlinksInPath()
-        try (lines.joined(separator: "\n") + "\n").write(to: real, atomically: true, encoding: .utf8)
-    }
-
-    private static func yamlQuoted(_ s: String) -> String {
-        let safe = s.range(of: "^[A-Za-z0-9 ._-]+$", options: .regularExpression) != nil
-        return safe ? s : "\"" + s.replacingOccurrences(of: "\"", with: "\\\"") + "\""
-    }
+    static var realURL: URL { url.resolvingSymlinksInPath() }
+    static func append(url: String, label: String?, group: String) throws { try YamlEdit.append(file: realURL, url: url, label: label, group: group) }
+    static func set(url: String, key: String, value: String?) throws { try YamlEdit.set(file: realURL, url: url, key: key, value: value) }
+    static func remove(url: String) throws { try YamlEdit.remove(file: realURL, url: url) }
+    static func quoted(_ s: String) -> String { YamlEdit.quoted(s) }
 }

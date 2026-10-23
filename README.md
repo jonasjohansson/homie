@@ -29,7 +29,7 @@ groups:
   - name: Social
     tabs:
       - url: https://www.messenger.com/
-        muted: true              # no sounds from this tab
+        muted: true              # no sounds from this tab (right-click a tab to toggle)
         badge: false             # ignore the "(3)" in its title
 ```
 
@@ -52,7 +52,8 @@ on each Mac.
 | Cmd+D | pin the page the tab is showing now |
 | Shift-click, Cmd+Option+1…9 | open a tab on the right, side by side |
 | Cmd+\\ | close the split |
-| Cmd+Shift+S | hide or show the sidebar (drag its edge to resize) |
+| Cmd+S | hide or show the sidebar (drag its edge to resize) |
+| right-click a tab | mute, badge, rename, split, reload, reset, remove |
 | Cmd+, | open bookmarks.yml |
 
 Links that ask for a new window open in the default browser; Homie is not for
