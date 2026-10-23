@@ -9,16 +9,7 @@
 <body>
 <div id="sidebar">
   <div id="top" class="drag">
-    <div id="nav">
-      <button id="back" class="nodrag" title="Back">‹</button>
-      <button id="fwd" class="nodrag" title="Forward">›</button>
-      <button id="reload" class="nodrag" title="Reload">↻</button>
-      <browser-action-list class="nodrag" partition="persist:homie" alignment="bottom left"></browser-action-list>
-    </div>
-  </div>
-  <div id="omnibox">
-    <input id="omni" type="text" spellcheck="false" autocomplete="off" placeholder="Search or enter address">
-    <ul id="suggest" hidden></ul>
+    <button id="toggle" class="nodrag" title="Hide sidebar (Cmd+Shift+S)"><svg width="16" height="14" viewBox="0 0 16 14"><rect x="0.5" y="0.5" width="15" height="13" rx="2.5" fill="none" stroke="currentColor"/><line x1="5.5" y1="0.5" x2="5.5" y2="13.5" stroke="currentColor"/></svg></button>
   </div>
   <div id="list">
     <div id="groups"></div>
@@ -26,9 +17,23 @@
       <h2><span>Today</span><button id="clearToday" title="Close all Today tabs">Clear</button></h2>
       <div id="today"></div>
     </section>
+    <div id="newTab" class="tab"><span class="ico"><span class="glyph">+</span></span><span class="label">New Tab</span></div>
   </div>
-  <div id="dlrow" class="tab" title="Downloads (Cmd+Shift+J)"><span class="ico"><span class="letter">↓</span></span><span class="label">Downloads</span><span class="meta"></span></div>
+  <div id="bottom">
+    <button id="dlrow" title="Downloads (Cmd+Shift+J)"><span class="glyph">↓</span><span class="meta"></span></button>
+    <button id="plus" title="New tab (Cmd+T)">+</button>
+  </div>
   <div id="handle"></div>
+</div>
+<div id="toolbar" class="drag">
+  <div id="nav">
+    <button id="toggle2" class="nodrag" title="Show sidebar (Cmd+Shift+S)"><svg width="16" height="14" viewBox="0 0 16 14"><rect x="0.5" y="0.5" width="15" height="13" rx="2.5" fill="none" stroke="currentColor"/><line x1="5.5" y1="0.5" x2="5.5" y2="13.5" stroke="currentColor"/></svg></button>
+    <button id="back" class="nodrag" title="Back">←</button>
+    <button id="fwd" class="nodrag" title="Forward">→</button>
+    <button id="reload" class="nodrag" title="Reload">↻</button>
+  </div>
+  <button id="address" class="nodrag" title="Edit address (Cmd+L)"><span class="host"></span></button>
+  <div id="tools"><browser-action-list class="nodrag" partition="persist:homie" alignment="bottom right"></browser-action-list></div>
 </div>
 <script src="sidebar.js"></script>
 </body>

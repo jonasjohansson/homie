@@ -9,6 +9,7 @@ import path from 'node:path';
 import YAML from 'yaml';
 
 const STARTER = `# Homie — the pinned sidebar. Per tab: url (required), label, muted, badge (default true).
+# tint: "#2a2335"   # optional window colour
 groups:
   - name: Homie
     tabs:
@@ -23,6 +24,7 @@ export class Bookmarks {
     this.path = path.join(app.getPath('userData'), 'bookmarks.yml');
     this.onChange = onChange;
     this.groups = [];
+    this.tint = '';
     if (!fs.existsSync(this.path)) {
       fs.mkdirSync(path.dirname(this.path), { recursive: true });
       fs.writeFileSync(this.path, STARTER);
@@ -48,6 +50,7 @@ export class Bookmarks {
       groups.push({ name: String(g.name || ''), tabs });
     }
     this.groups = groups;
+    this.tint = typeof doc.tint === 'string' && /^#[0-9a-f]{6}$/i.test(doc.tint) ? doc.tint : '';
     return true;
   }
 

@@ -2,7 +2,7 @@
 // WebContentsView per tab on the right; only the active tab's view is visible.
 // Pinned tabs come from bookmarks.yml and are keyed by their pinned URL; Today tabs
 // are everything else and live in state.json between launches, unloaded until clicked.
-import { app, BrowserWindow, WebContentsView, Menu, Notification, clipboard, shell, ipcMain, session } from 'electron';
+import { app, BrowserWindow, WebContentsView, Menu, Notification, clipboard, shell, ipcMain, nativeTheme } from 'electron';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +13,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PAGE_PRELOAD = path.join(__dirname, '..', 'preload', 'page.cjs');
 const SIDEBAR_PRELOAD = path.join(__dirname, '..', 'preload', 'sidebar.cjs');
 const SIDEBAR_MIN = 180, SIDEBAR_MAX = 480;
+const TOOLBAR = 44, MARGIN = 8, RADIUS = 10;     // the page is a card under a toolbar, as in Arc
+const PALETTE_W = 640;
 const STAGGER_MS = 600;
 
 // Installed in the page's main world after dom-ready (executeJavaScript is not
@@ -125,24 +127,32 @@ export class TabManager {
   }
 
   // --- window ---------------------------------------------------------------------
+  tintColor() { return this.bookmarks.tint || (nativeTheme.shouldUseDarkColors ? '#2a2335' : '#ece8f1'); }
+
   createWindow() {
     const b = state.bounds || {};
     this.win = new BrowserWindow({
       title: 'Homie', x: b.x, y: b.y, width: b.width || 1280, height: b.height || 860,
       minWidth: 600, minHeight: 300, show: false,
-      titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 14 },
-      vibrancy: 'sidebar', visualEffectState: 'followWindow',
-      backgroundColor: '#00000000',
+      titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 20, y: 18 },
+      backgroundColor: this.tintColor(),
     });
-    this.sidebar = new WebContentsView({
-      webPreferences: { preload: SIDEBAR_PRELOAD, sandbox: false, contextIsolation: true, nodeIntegration: false, partition: 'homie-ui' },
-    });
-    this.sidebar.setBackgroundColor('#00000000');
+    const ui = { preload: SIDEBAR_PRELOAD, sandbox: false, contextIsolation: true, nodeIntegration: false, partition: 'homie-ui' };
+    // the chrome: tint, sidebar and toolbar, full window, under every page
+    this.sidebar = new WebContentsView({ webPreferences: ui });
     this.win.contentView.addChildView(this.sidebar);
     this.sidebar.webContents.loadFile(path.join(__dirname, '..', 'renderer', 'sidebar.html'));
     this.sidebar.webContents.on('did-finish-load', () => this.push(true));
     this.sidebar.webContents.on('context-menu', (e) => e.preventDefault());
     this.sidebar.webContents.setWindowOpenHandler(({ url }) => { this.open(url); return { action: 'deny' }; });
+    // the command bar: a small view floating over the page, shown on demand
+    this.palette = new WebContentsView({ webPreferences: ui });
+    this.palette.setBorderRadius?.(RADIUS);
+    this.palette.setVisible(false);
+    this.paletteHeight = 48;
+    this.win.contentView.addChildView(this.palette);
+    this.palette.webContents.loadFile(path.join(__dirname, '..', 'renderer', 'palette.html'));
+    this.palette.webContents.on('context-menu', (e) => e.preventDefault());
 
     this.win.on('resize', () => { this.layout(); this.saveBounds(); });
     this.win.on('move', () => this.saveBounds());
@@ -150,6 +160,7 @@ export class TabManager {
       if (!app.quitting) { e.preventDefault(); this.win.hide(); }
     });
     this.win.on('focus', () => this.active?.wc?.focus());
+    nativeTheme.on('updated', () => this.win?.setBackgroundColor(this.tintColor()));
     this.layout();
     // ready-to-show never fires: the window's own webContents loads nothing
     const show = () => { if (this.win && !this.win.isVisible()) this.win.show(); };
@@ -164,15 +175,32 @@ export class TabManager {
     const [w, h] = this.win.getContentSize();
     const hidden = this.sidebarHidden || !!this.fullscreenTab;
     const sbw = hidden ? 0 : state.sidebarWidth;
-    this.sidebar.setBounds({ x: 0, y: 0, width: this.sidebarDragging ? w : sbw, height: h });
-    this.sidebar.setVisible(!hidden);
+    this.sidebar.setBounds({ x: 0, y: 0, width: w, height: h });
+    const card = this.fullscreenTab
+      ? { x: 0, y: 0, width: w, height: h }
+      : { x: sbw + MARGIN, y: TOOLBAR, width: Math.max(0, w - sbw - 2 * MARGIN), height: Math.max(0, h - TOOLBAR - MARGIN) };
     for (const t of this.tabs.values()) {
       if (!t.loaded) continue;
       const on = t === this.active;
-      if (on) t.view.setBounds({ x: sbw, y: 0, width: Math.max(0, w - sbw), height: h });
-      t.view.setVisible(on);
+      if (on) { t.view.setBounds(card); t.view.setBorderRadius?.(this.fullscreenTab ? 0 : RADIUS); }
+      t.view.setVisible(on && !this.sidebarDragging);
     }
+    const pw = Math.min(PALETTE_W, card.width - 40);
+    this.palette.setBounds({ x: card.x + Math.round((card.width - pw) / 2), y: card.y + Math.round(card.height * 0.18), width: pw, height: this.paletteHeight });
   }
+
+  raisePalette() { this.win.contentView.removeChildView(this.palette); this.win.contentView.addChildView(this.palette); }
+
+  showPalette(mode, arg) {
+    this.focus();
+    this.layout();
+    this.palette.setVisible(true);
+    this.palette.webContents.send('state', this.snapshot());
+    this.palette.webContents.send('open', mode, arg);
+    this.palette.webContents.focus();
+  }
+
+  hidePalette() { this.palette.setVisible(false); this.active?.wc?.focus(); }
 
   focus() { if (!this.win) return; if (this.win.isMinimized()) this.win.restore(); this.win.show(); this.win.focus(); }
 
@@ -187,8 +215,10 @@ export class TabManager {
     tab.view = view;
     const wc = view.webContents;
     wc.setAudioMuted(tab.muted);
-    this.win.contentView.addChildView(view, 0);
+    this.win.contentView.addChildView(view);
     view.setVisible(false);
+    view.setBorderRadius?.(RADIUS);
+    this.raisePalette();
     if (internal) {
       wc.on('page-title-updated', (_e, title) => { tab.title = title; this.push(); this.updateWindowTitle(); });
       wc.on('context-menu', (e) => e.preventDefault());
@@ -409,7 +439,7 @@ export class TabManager {
     this.bookmarks.remove(t.pinnedUrl);
   }
 
-  toggleSidebar() { this.sidebarHidden = !this.sidebarHidden; this.layout(); }
+  toggleSidebar() { this.sidebarHidden = !this.sidebarHidden; this.layout(); this.push(); }
   setSidebarWidth(w) { state.sidebarWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w))); saveState(); this.layout(); }
 
   badgesChanged() {
@@ -450,7 +480,7 @@ export class TabManager {
     const items = [];
     if (t.kind === 'today') {
       items.push({ label: 'Pin to', submenu: this.groups.map((g) => ({ label: g.name, click: () => this.pin(id, g.name) })).concat(
-        this.groups.length ? [{ type: 'separator' }] : [], [{ label: 'New group…', click: () => this.sendUI('prompt-group', id) }]) });
+        this.groups.length ? [{ type: 'separator' }] : [], [{ label: 'New group…', click: () => this.showPalette('pin', id) }]) });
     }
     items.push({ label: t.muted ? 'Unmute' : 'Mute', click: () => this.setMuted(t, !t.muted) });
     if (t.kind === 'pinned') {
@@ -523,7 +553,9 @@ export class TabManager {
   }
 
   // --- sidebar protocol ---------------------------------------------------------------
-  sendUI(ch, ...args) { if (this.sidebar && !this.sidebar.webContents.isDestroyed()) this.sidebar.webContents.send(ch, ...args); }
+  sendUI(ch, ...args) {
+    for (const v of [this.sidebar, this.palette]) if (v && !v.webContents.isDestroyed()) v.webContents.send(ch, ...args);
+  }
 
   push(now = false) {
     if (now) { clearTimeout(this.pushTimer); this.pushTimer = null; return this.sendUI('state', this.snapshot()); }
@@ -543,11 +575,13 @@ export class TabManager {
       downloads: this.downloads?.summary() || null,
       downloadsActive: !!this.downloadsTab && a === this.downloadsTab,
       sidebarWidth: state.sidebarWidth,
+      sidebarHidden: this.sidebarHidden,
+      tint: this.bookmarks.tint || '',
     };
   }
 
   wireIpc() {
-    const fromUI = (e) => e.sender === this.sidebar?.webContents;
+    const fromUI = (e) => e.sender === this.sidebar?.webContents || e.sender === this.palette?.webContents;
     ipcMain.on('activate', (e, id) => fromUI(e) && this.activate(id));
     ipcMain.on('close', (e, id) => fromUI(e) && this.close(id));
     ipcMain.on('navigate', (e, text, opts) => fromUI(e) && this.navigate(text, opts || {}));
@@ -576,6 +610,10 @@ export class TabManager {
       else { this.sidebarDragging = false; this.setSidebarWidth(width); this.push(); }
     });
     ipcMain.on('show-downloads', (e) => fromUI(e) && this.showDownloads());
+    ipcMain.on('toggle-sidebar', (e) => fromUI(e) && this.toggleSidebar());
+    ipcMain.on('palette', (e, mode, arg) => fromUI(e) && this.showPalette(mode, arg));
+    ipcMain.on('palette-close', (e) => fromUI(e) && this.hidePalette());
+    ipcMain.on('palette-size', (e, h) => { if (fromUI(e)) { this.paletteHeight = Math.max(48, Math.min(600, Math.round(h))); this.layout(); } });
     ipcMain.on('focus-page', (e) => fromUI(e) && this.active?.wc?.focus());
     ipcMain.on('homie:notification', (e, payload) => this.notify(e.sender, payload || {}));
   }

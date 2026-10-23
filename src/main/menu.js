@@ -16,10 +16,10 @@ export function buildMenu(mgr, bookmarks) {
       { role: 'services' }, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit' },
     ] },
     { label: 'File', submenu: [
-      { label: 'New Tab', accelerator: 'Cmd+T', click: () => { mgr.focus(); ui('focus-omni', 'new'); } },
-      { label: 'Open Address', accelerator: 'Cmd+L', click: () => { mgr.focus(); ui('focus-omni', 'url'); } },
+      { label: 'New Tab', accelerator: 'Cmd+T', click: () => mgr.showPalette('new') },
+      { label: 'Open Address', accelerator: 'Cmd+L', click: () => mgr.showPalette('url') },
       { label: 'Reopen Closed Tab', accelerator: 'Cmd+Shift+T', click: () => mgr.reopenClosed() },
-      { label: 'Pin This Page', accelerator: 'Cmd+D', click: () => { const a = t(); if (!a) return; if (a.kind === 'today') ui('prompt-pin', a.id); else bookmarks.replaceUrl(a.pinnedUrl, a.url); } },
+      { label: 'Pin This Page', accelerator: 'Cmd+D', click: () => { const a = t(); if (!a) return; if (a.kind === 'today') mgr.showPalette('pin', a.id); else bookmarks.replaceUrl(a.pinnedUrl, a.url); } },
       { type: 'separator' },
       { label: 'Close Tab', accelerator: 'Cmd+W', click: () => { if (t()) mgr.close(t().id); } },
       { label: 'Clear Today', accelerator: 'Cmd+Shift+W', click: () => mgr.clearToday() },
@@ -31,7 +31,7 @@ export function buildMenu(mgr, bookmarks) {
     { label: 'Edit', submenu: [
       { role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'pasteAndMatchStyle' }, { role: 'selectAll' },
       { type: 'separator' },
-      { label: 'Find…', accelerator: 'Cmd+F', click: () => { mgr.focus(); ui('focus-omni', 'find'); } },
+      { label: 'Find…', accelerator: 'Cmd+F', click: () => mgr.showPalette('find') },
       { label: 'Find Next', accelerator: 'Cmd+G', click: () => ui('find-step', 1) },
       { label: 'Find Previous', accelerator: 'Cmd+Shift+G', click: () => ui('find-step', -1) },
       { type: 'separator' },
@@ -53,6 +53,7 @@ export function buildMenu(mgr, bookmarks) {
       { type: 'separator' },
       { label: 'Developer Tools', accelerator: 'Cmd+Option+I', click: () => wc()?.toggleDevTools() },
       { label: 'Sidebar Developer Tools', accelerator: 'Cmd+Option+Shift+I', click: () => mgr.sidebar.webContents.toggleDevTools({ mode: 'detach' }) },
+      { label: 'Command Bar Developer Tools', click: () => mgr.palette.webContents.toggleDevTools({ mode: 'detach' }) },
     ] },
     { label: 'History', submenu: [
       { label: 'Back', accelerator: 'Cmd+[', click: () => wc()?.navigationHistory.goBack() },
