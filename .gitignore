@@ -1,21 +1,6 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-
-# Dependency directories
-node_modules/
-
-# Output
-/dist
-/out
-
-# OS
+.build/
+build/Homie.app
 .DS_Store
-
-# env
-.env
-
-# lock
-package-lock.json
 .claude/
+*.xcodeproj
+.swiftpm/
