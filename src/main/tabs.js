@@ -196,12 +196,14 @@ export class TabManager {
   // Move the active page view to its new card over SIDEBAR_MS, in step with the chrome's CSS
   // transition; the chrome paints the tint under the page, so nothing shows through.
   animateLayout() {
-    const view = this.active?.view; if (!view || !this.active.loaded) return this.layout();
+    const view = this.active?.view; if (!view || !this.active.loaded || nativeTheme.prefersReducedMotion) return this.layout();
     const from = view.getBounds();
     const to = this.layout();
     clearInterval(this.animTimer);
     const t0 = Date.now();
-    const ease = (p) => 1 - Math.pow(1 - p, 3);
+    // the same critically damped spring the chrome uses (SwiftUI .default shape), sampled
+    const K = [0, .0576, .1805, .3211, .4556, .5734, .6716, .7505, .8126, .8604, .8969, .9243, .9447, .9598, .9709, .979, .9849, .9892, .9923, .9945, .9961, .9972, .998, .9986, 1];
+    const ease = (p) => { const i = Math.min(K.length - 2, Math.floor(p * (K.length - 1))); const f = p * (K.length - 1) - i; return K[i] + (K[i + 1] - K[i]) * f; };
     this.animTimer = setInterval(() => {
       const p = Math.min(1, (Date.now() - t0) / SIDEBAR_MS), e = ease(p);
       view.setBounds({ x: Math.round(from.x + (to.x - from.x) * e), y: to.y, width: Math.round(from.width + (to.width - from.width) * e), height: to.height });

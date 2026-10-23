@@ -54,7 +54,10 @@ button svg { display: block; }
 /* --- sidebar ------------------------------------------------------------------- */
 /* Motion, measured from Arc on 2026-10-23: the sidebar slides in 60 to 90 ms with an ease-out,
    the command bar and tab switches are instant, rows fade in or collapse in about 50 ms. */
-:root { --ease-out: cubic-bezier(.2, 0, 0, 1); --t-sidebar: 90ms; --t-row: 50ms; --t-hover: 80ms; }
+/* The curve is Apple's critically damped default spring (SwiftUI .default), sampled; Arc, a Swift app,
+   inherits that shape. Durations are the measured settle times, not Apple's 550 ms. */
+:root { --ease-out: linear(0, 0.0576 4.17%, 0.1805 8.33%, 0.3211 12.5%, 0.4556 16.7%, 0.5734 20.8%, 0.6716 25%, 0.7505 29.2%, 0.8126 33.3%, 0.8604 37.5%, 0.8969 41.7%, 0.9243 45.8%, 0.9447 50%, 0.9598 54.2%, 0.9709 58.3%, 0.979 62.5%, 0.9849 66.7%, 0.9892 70.8%, 0.9923 75%, 0.9945 79.2%, 0.9961 83.3%, 0.9972 87.5%, 0.998 91.7%, 0.9986 95.8%, 1); --t-sidebar: 90ms; --t-row: 50ms; --t-hover: 80ms; }
+@media (prefers-reduced-motion: reduce) { :root { --t-sidebar: 0ms; --t-row: 0ms; --t-hover: 0ms; } }
 #sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: var(--w); display: flex; flex-direction: column; transition: opacity var(--t-sidebar) var(--ease-out); }
 body.sidebar-hidden #sidebar { opacity: 0; pointer-events: none; }
 #top { height: 48px; flex: none; display: flex; align-items: center; padding-left: 80px; }
