@@ -46,42 +46,6 @@ const NOTIFICATION_SHIM = `(function () {
   window.Notification = HomieNotification;
 })();`;
 
-// What Chrome exposes and Electron does not: "Google Chrome" among the userAgentData brands and a
-// populated window.chrome. Google's sign-in reads both ("this browser or app may not be secure").
-// Installed through the debugger's Page.addScriptToEvaluateOnNewDocument, so it runs in the main
-// world before any page script, which a sandboxed preload cannot do.
-const CHROME_SHIM = `(function () {
-  const full = '${process.versions.chrome}', major = full.split('.')[0];
-  try {
-    const real = navigator.userAgentData;
-    const notBrand = real?.brands?.find((b) => /not/i.test(b.brand)) || { brand: 'Not=A?Brand', version: '24' };
-    const brands = [notBrand, { brand: 'Chromium', version: major }, { brand: 'Google Chrome', version: major }];
-    const fullList = [{ brand: notBrand.brand, version: notBrand.version + '.0.0.0' }, { brand: 'Chromium', version: full }, { brand: 'Google Chrome', version: full }];
-    const data = {
-      brands, mobile: false, platform: real?.platform || 'macOS',
-      toJSON() { return { brands, mobile: false, platform: this.platform }; },
-      getHighEntropyValues: async (hints) => {
-        const base = real ? await real.getHighEntropyValues(hints) : {};
-        const out = { ...base, brands, mobile: false, platform: data.platform };
-        if (hints.includes('fullVersionList')) out.fullVersionList = fullList;
-        if (hints.includes('uaFullVersion')) out.uaFullVersion = full;
-        return out;
-      },
-    };
-    Object.defineProperty(Navigator.prototype, 'userAgentData', { get: () => data, configurable: true });
-  } catch {}
-  try {
-    if (!window.chrome || !window.chrome.runtime) {
-      const chrome = window.chrome || {};
-      chrome.app = chrome.app || { isInstalled: false, InstallState: { DISABLED: 'disabled', INSTALLED: 'installed', NOT_INSTALLED: 'not_installed' }, RunningState: { CANNOT_RUN: 'cannot_run', READY_TO_RUN: 'ready_to_run', RUNNING: 'running' }, getDetails() { return null; }, getIsInstalled() { return false; }, runningState() { return 'cannot_run'; } };
-      chrome.runtime = chrome.runtime || { OnInstalledReason: { CHROME_UPDATE: 'chrome_update', INSTALL: 'install', SHARED_MODULE_UPDATE: 'shared_module_update', UPDATE: 'update' }, PlatformOs: { MAC: 'mac', WIN: 'win', ANDROID: 'android', CROS: 'cros', LINUX: 'linux', OPENBSD: 'openbsd' }, connect() { throw new TypeError('Error in invocation of runtime.connect'); }, sendMessage() { throw new TypeError('Error in invocation of runtime.sendMessage'); }, id: undefined };
-      chrome.csi = chrome.csi || function () { const t = performance.timing; return { onloadT: t.domContentLoadedEventEnd, startE: t.navigationStart, pageT: performance.now(), tran: 15 }; };
-      chrome.loadTimes = chrome.loadTimes || function () { const t = performance.timing; return { requestTime: t.navigationStart / 1000, startLoadTime: t.navigationStart / 1000, commitLoadTime: t.responseStart / 1000, finishDocumentLoadTime: t.domContentLoadedEventEnd / 1000, finishLoadTime: t.loadEventEnd / 1000, firstPaintTime: 0, firstPaintAfterLoadTime: 0, navigationType: 'Other', wasFetchedViaSpdy: true, wasNpnNegotiated: true, npnNegotiatedProtocol: 'h2', wasAlternateProtocolAvailable: false, connectionInfo: 'h2' }; };
-      Object.defineProperty(window, 'chrome', { value: chrome, configurable: true, enumerable: true, writable: true });
-    }
-  } catch {}
-})();`;
-
 let nextId = 1;
 
 export class Tab {
@@ -349,7 +313,7 @@ export class TabManager {
     const view = new WebContentsView({
       webPreferences: internal
         ? { preload: SIDEBAR_PRELOAD, sandbox: false, contextIsolation: true, nodeIntegration: false, partition: 'homie-ui' }
-        : { preload: PAGE_PRELOAD, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: true, partition: 'persist:homie' },
+        : { preload: PAGE_PRELOAD, sandbox: false, contextIsolation: true, nodeIntegration: false, backgroundThrottling: true, partition: 'persist:homie' },   // sandbox off only so the preload's webFrame can install the Chrome shim before page scripts
     });
     tab.view = view;
     const wc = view.webContents;
@@ -367,7 +331,6 @@ export class TabManager {
     this.addingTab = true;
     try { this.extensions?.addTab(wc, this.win); } catch (e) { console.error('extensions.addTab', e.message); }
     this.addingTab = false;
-    try { wc.debugger.attach('1.3'); wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source: CHROME_SHIM, runImmediately: true }).catch((e) => console.error('chrome shim:', e.message)); } catch (e) { console.error('debugger:', e.message); }
 
     wc.on('page-title-updated', (_e, title) => { tab.titleChanged(title); if (tab.kind === 'today') this.saveToday(); this.push(); this.updateWindowTitle(); });
     wc.on('focus', () => { if (this.active !== tab && this.split?.panes.includes(tab) && this.visiblePanes().includes(tab)) this.activate(tab.id); });   // a click in a pane focuses it
