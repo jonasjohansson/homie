@@ -9,15 +9,15 @@
 <body>
 <div id="sidebar">
   <div id="top" class="drag">
-    <button id="toggle" class="nodrag" title="Hide sidebar (Cmd+Shift+S)"><svg width="18" height="14" viewBox="0 0 18 14"><rect x="0.75" y="0.75" width="16.5" height="12.5" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="6.5" y1="0.75" x2="6.5" y2="13.25" stroke="currentColor" stroke-width="1.5"/></svg></button>
+    <button id="toggle" class="nodrag" title="Hide sidebar (Cmd+Shift+S)"><svg width="16" height="13" viewBox="0 0 16 13"><rect x="0.6" y="0.6" width="14.8" height="11.8" rx="3" fill="none" stroke="currentColor" stroke-width="1.05"/><line x1="5.9" y1="0.6" x2="5.9" y2="12.4" stroke="currentColor" stroke-width="1.05"/><path d="M2.2 3.5h2.2M2.2 5.5h2.2M2.2 7.5h2.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></button>
   </div>
   <div id="list">
     <div id="groups"></div>
     <section id="todaySection">
-      <h2 class="today"><span>Today</span><button id="clearToday" title="Close all Today tabs">Clear</button></h2>
+      <div id="divider"><button id="clearToday" title="Close all Today tabs">Clear</button></div>
+      <div id="newTab" class="tab"><span class="ico"><span class="glyph">+</span></span><span class="label">New Tab</span></div>
       <div id="today"></div>
     </section>
-    <div id="newTab" class="tab"><span class="ico"><span class="glyph">+</span></span><span class="label">New Tab</span></div>
   </div>
   <div id="bottom">
     <button id="dlrow" title="Downloads (Cmd+Shift+J)"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 1.5v9M4.5 7 8 10.5 11.5 7M2.5 13.5h11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="meta"></span></button>
@@ -28,7 +28,7 @@
 <div id="card">
   <div id="toolbar" class="drag">
     <div id="nav">
-      <button id="toggle2" class="nodrag" title="Show sidebar (Cmd+Shift+S)"><svg width="18" height="14" viewBox="0 0 18 14"><rect x="0.75" y="0.75" width="16.5" height="12.5" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="6.5" y1="0.75" x2="6.5" y2="13.25" stroke="currentColor" stroke-width="1.5"/></svg></button>
+      <button id="toggle2" class="nodrag" title="Show sidebar (Cmd+Shift+S)"><svg width="16" height="13" viewBox="0 0 16 13"><rect x="0.6" y="0.6" width="14.8" height="11.8" rx="3" fill="none" stroke="currentColor" stroke-width="1.05"/><line x1="5.9" y1="0.6" x2="5.9" y2="12.4" stroke="currentColor" stroke-width="1.05"/><path d="M2.2 3.5h2.2M2.2 5.5h2.2M2.2 7.5h2.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></button>
       <button id="back" class="nodrag" title="Back"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M13 8H3M7 4 3 8l4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button id="fwd" class="nodrag" title="Forward"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button id="reload" class="nodrag" title="Reload"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>

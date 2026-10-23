@@ -37,7 +37,7 @@ function render() {
   }
   for (const sec of sections.values()) sec.remove();
   reconcile(todayEl, S.today, null);
-  todaySection.classList.toggle('has', S.today.length > 0 || todayEl.querySelector('.tab.leave'));
+  todaySection.classList.toggle('has', S.today.length > 0 || !!todayEl.querySelector('.tab.leave'));
   $('#back').disabled = !S.canGoBack; $('#fwd').disabled = !S.canGoForward;
   addressEl.textContent = host(S.url);
   const act = document.querySelector('.tab.active'); if (act) act.scrollIntoView({ block: 'nearest' });
@@ -86,7 +86,7 @@ function row(t) {
   const ico = document.createElement('span'); ico.className = 'ico';
   if (t.favicon) { const img = document.createElement('img'); img.src = t.favicon; img.onerror = () => { img.replaceWith(letter(t)); }; ico.append(img); } else ico.append(letter(t));
   const slash = document.createElement('span'); slash.className = 'slash'; slash.textContent = '/';
-  const label = document.createElement('span'); label.className = 'label'; label.textContent = t.kind === 'pinned' ? t.label : (t.title || host(t.url) || t.url); label.title = t.url;
+  const label = document.createElement('span'); label.className = 'label'; label.textContent = t.kind === 'pinned' && !t.away ? t.label : (t.title || host(t.url) || t.url);   // Arc: an away tab shows "/ page title" label.title = t.url;
   const badge = document.createElement('span'); badge.className = 'badge'; if (t.unread > 0) badge.textContent = t.unread > 99 ? '99+' : String(t.unread);
   const x = document.createElement('button'); x.className = 'x'; x.textContent = t.kind === 'pinned' ? '↺' : '×'; x.title = t.kind === 'pinned' ? 'Back to the pinned page' : 'Close';
   x.addEventListener('click', (e) => { e.stopPropagation(); homie.send('close', t.id); });

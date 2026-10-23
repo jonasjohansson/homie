@@ -60,7 +60,7 @@ button svg { display: block; }
 @media (prefers-reduced-motion: reduce) { :root { --t-sidebar: 0ms; --t-row: 0ms; --t-hover: 0ms; } }
 #sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: var(--w); display: flex; flex-direction: column; transition: opacity var(--t-sidebar) var(--ease-out); }
 body.sidebar-hidden #sidebar { opacity: 0; pointer-events: none; }
-#top { height: 48px; flex: none; display: flex; align-items: center; padding-left: 80px; }
+#top { height: 48px; flex: none; display: flex; align-items: center; padding-left: 78px; }   /* icon centre at 91 pt, Arc: 90.75 */
 #toggle { width: 26px; height: 24px; color: var(--fg-dim); }
 
 #list { flex: 1 1 auto; overflow-y: auto; padding: 36px 0 8px; }
@@ -69,11 +69,14 @@ h2 { height: var(--row); margin: 0 8px var(--pitch); padding: 0 0 0 10px; displa
 h2 .folder { width: 18px; height: 16px; display: grid; place-items: center; color: #7b74f2; }
 h2 .folder svg { display: block; }
 h2 button { margin-left: auto; margin-right: 8px; font-size: 11px; font-weight: 500; color: var(--fg-dim); }
-h2.today { color: var(--fg-dim); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; margin-top: 4px; }
-#todaySection:not(.has) { display: none; }
+/* Arc: a hairline between pinned and Today, "Clear" at its right while the pointer is over the Today tabs; "+ New Tab" is the first Today row. */
+#divider { height: 1px; margin: -4px 16px 3px; background: transparent; position: relative; transition: background-color var(--t-hover) var(--ease-out); }   /* keeps the 41 pt pitch; Arc shows the line only on hover */
+#todaySection.has:hover #divider { background: var(--line); }
+#clearToday { position: absolute; right: -8px; top: -12px; height: 24px; padding: 0 8px; font-size: 11px; font-weight: 500; color: var(--fg-dim); background: linear-gradient(var(--tint-top), var(--tint-bottom)); opacity: 0; transition: opacity var(--t-hover) var(--ease-out); }
+#todaySection.has:hover #clearToday { opacity: 1; }
 
 .tab { height: var(--row); margin: 0 8px var(--pitch); padding: 0 6px 0 10px; display: grid; grid-template-columns: var(--icon) auto 1fr auto auto; gap: 7px; align-items: center; border-radius: 8px; white-space: nowrap; color: var(--fg-tab); font-weight: 500; }
-.group .tab { padding-left: 28px; }
+.group .tab { margin-left: 24px; padding-left: 10px; }   /* Arc: child highlight starts 24 pt in, favicon at 33.5 pt */
 .tab { transition: background-color var(--t-hover) var(--ease-out), height var(--t-row) var(--ease-out), margin var(--t-row) var(--ease-out), opacity var(--t-row) var(--ease-out); }
 .tab:hover { background: var(--hover); }
 .tab.active { background: var(--active); color: var(--fg); }
@@ -84,7 +87,7 @@ h2.today { color: var(--fg-dim); font-size: 11px; font-weight: 600; letter-spaci
 .tab .ico img { width: var(--icon); height: var(--icon); object-fit: contain; }
 .tab .ico .letter { width: var(--icon); height: var(--icon); font-size: 10px; font-weight: 600; line-height: var(--icon); text-align: center; border-radius: 4px; background: var(--field); color: var(--fg-muted); }
 .tab .slash { color: var(--fg-muted); font-size: 13px; visibility: hidden; margin: 0 -2px; }
-.tab.loaded .slash { visibility: visible; }
+.tab.away .slash { visibility: visible; }   /* Arc: the slash means the tab has left its pinned page */
 .tab .label { overflow: hidden; text-overflow: ellipsis; }
 .tab.loading .label, .tab.pinned:not(.loaded) .label, .tab.today:not(.loaded) .label { color: var(--fg-muted); }
 .tab.muted .label::after { content: " ·"; color: var(--fg-muted); }
@@ -93,7 +96,7 @@ h2.today { color: var(--fg-dim); font-size: 11px; font-weight: 600; letter-spaci
 .tab .x { width: 20px; height: 20px; font-size: 14px; color: var(--fg-muted); border-radius: 4px; visibility: hidden; }
 .tab.today .x, .tab.away .x, .tab:hover .x { visibility: visible; }
 .tab input.rename { width: 100%; height: 22px; font: inherit; color: var(--fg); background: var(--field); border: 0; border-radius: 4px; padding: 0 4px; outline: none; }
-#newTab { grid-template-columns: var(--icon) 1fr; color: var(--fg-dim); margin-top: 2px; font-weight: 500; }
+#newTab { grid-template-columns: var(--icon) 1fr; color: var(--fg-dim); font-weight: 500; }
 #newTab .glyph { font-size: 16px; line-height: 1; }
 
 #bottom { flex: none; height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px 0 16px; color: var(--fg-dim); }
@@ -107,9 +110,9 @@ h2.today { color: var(--fg-dim); font-size: 11px; font-weight: 600; letter-spaci
 /* --- the card: toolbar on top, the page view sits over the rest -------------------- */
 #card { position: absolute; left: var(--w); top: var(--m); right: var(--m); bottom: var(--m); border-radius: var(--radius); background: var(--card); color: var(--card-fg); transition: left var(--t-sidebar) var(--ease-out); }
 body.sidebar-hidden #card { left: var(--m); }
-#toolbar { height: var(--tb); display: grid; grid-template-columns: 1fr minmax(0, 2fr) 1fr; align-items: center; padding: 0 8px 0 10px; transition: padding-left var(--t-sidebar) var(--ease-out); }
+#toolbar { height: var(--tb); display: grid; grid-template-columns: 1fr minmax(0, 2fr) 1fr; align-items: center; padding: 0 8px 0 5px; transition: padding-left var(--t-sidebar) var(--ease-out); }
 body.sidebar-hidden #toolbar { padding-left: 76px; }
-#nav { display: flex; gap: 2px; }
+#nav { display: flex; gap: 7px; }   /* Arc: nav icons on a 37 pt pitch, first centre 20 pt from the card edge */
 #nav button { width: 30px; height: 28px; color: var(--card-muted); border-radius: 6px; transition: background-color var(--t-hover) var(--ease-out); }
 #nav button:hover:not(:disabled), #address:hover, #toggle:hover, #bottom button:hover { background: var(--hover); }
 #nav button:disabled { opacity: .4; }

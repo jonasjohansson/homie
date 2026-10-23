@@ -136,7 +136,7 @@ export class TabManager {
     this.win = new BrowserWindow({
       title: 'Homie', x: b.x, y: b.y, width: b.width || 1280, height: b.height || 860,
       minWidth: 600, minHeight: 300, show: false,
-      titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 20, y: 18 },
+      titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 13, y: 17 },
       backgroundColor: this.tintColor(),
     });
     const ui = { preload: SIDEBAR_PRELOAD, sandbox: false, contextIsolation: true, nodeIntegration: false, partition: 'homie-ui' };
