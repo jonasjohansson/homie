@@ -4,7 +4,7 @@ import AppKit
 /// Strict grid, no hover states. Empty space drags the window.
 final class SidebarView: NSView {
     struct Row {
-        enum Kind { case header(String), tab(TabItem) }
+        enum Kind { case header(String), tab(TabItem), downloads }
         let kind: Kind
         let frame: NSRect
     }
@@ -12,6 +12,9 @@ final class SidebarView: NSView {
     var items: [TabItem] = [] { didSet { needsDisplay = true } }
     var selected: TabItem?
     var secondary: TabItem?
+    var downloadsSelected = false
+    var activeDownloads = 0
+    var onSelectDownloads: (() -> Void)?
     /// split is true for a Shift- or Option-click: open on the right.
     var onSelect: ((TabItem, Bool) -> Void)?
     var onContextMenu: ((TabItem) -> NSMenu)?
@@ -40,6 +43,8 @@ final class SidebarView: NSView {
             out.append(Row(kind: .tab(item), frame: NSRect(x: 0, y: y, width: bounds.width, height: SidebarView.rowHeight)))
             y += SidebarView.rowHeight
         }
+        let bottom = max(y + SidebarView.gap, bounds.height - SidebarView.rowHeight - SidebarView.inset)
+        out.append(Row(kind: .downloads, frame: NSRect(x: 0, y: bottom, width: bounds.width, height: SidebarView.rowHeight)))
         return out
     }
 
@@ -55,6 +60,31 @@ final class SidebarView: NSView {
                 let attrs: [NSAttributedString.Key: Any] = [.font: headerFont, .foregroundColor: NSColor.secondaryLabelColor]
                 let s = NSAttributedString(string: name, attributes: attrs)
                 s.draw(at: NSPoint(x: inset, y: row.frame.minY + (row.frame.height - s.size().height) / 2 + 2))
+
+            case .downloads:
+                var r = row.frame.insetBy(dx: 6, dy: 1)
+                if downloadsSelected {
+                    NSColor.unemphasizedSelectedContentBackgroundColor.setFill()
+                    NSBezierPath(roundedRect: r, xRadius: 5, yRadius: 5).fill()
+                }
+                r = r.insetBy(dx: 6, dy: 0)
+                if let icon = NSImage(systemSymbolName: "arrow.down.circle", accessibilityDescription: nil) {
+                    let cfg = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
+                    let img = icon.withSymbolConfiguration(cfg) ?? icon
+                    NSColor.secondaryLabelColor.set()
+                    let ir = NSRect(x: r.minX, y: r.midY - 8, width: 16, height: 16)
+                    img.draw(in: ir, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+                }
+                var countWidth: CGFloat = 0
+                if activeDownloads > 0 {
+                    let c = NSAttributedString(string: "\(activeDownloads)", attributes: [.font: countFont, .foregroundColor: NSColor.secondaryLabelColor])
+                    let size = c.size()
+                    c.draw(at: NSPoint(x: r.maxX - size.width, y: r.midY - size.height / 2))
+                    countWidth = size.width + 8
+                }
+                let label = NSAttributedString(string: "Downloads", attributes: [.font: labelFont, .foregroundColor: NSColor.labelColor])
+                let size = label.size()
+                label.draw(with: NSRect(x: r.minX + 24, y: r.midY - size.height / 2, width: r.width - 24 - countWidth, height: size.height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
 
             case .tab(let item):
                 var r = row.frame.insetBy(dx: 6, dy: 1)
@@ -112,11 +142,20 @@ final class SidebarView: NSView {
                 onSelect?(item, split)
                 return
             }
+            if case .downloads = row.kind, row.frame.contains(p) {
+                onSelectDownloads?()
+                return
+            }
         }
         window?.performDrag(with: event)
     }
 
     override func viewDidChangeEffectiveAppearance() {
+        needsDisplay = true
+    }
+
+    override func layout() {
+        super.layout()
         needsDisplay = true
     }
 }

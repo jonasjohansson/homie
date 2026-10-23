@@ -13,7 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
     private var items: [TabItem] = []
     private var current: TabItem?          // left pane
     private var secondary: TabItem?        // right pane, when split
-    private var sidebarHidden = UserDefaults.standard.bool(forKey: "sidebarHidden")
+    private var sidebarHidden = false          // always visible on launch
+    private var downloadsView: DownloadsView?
+    private var showingDownloads = false
     private var watcher: ConfigWatcher?
     private var statusItem: NSStatusItem?
     private var tabMenu: NSMenu!
@@ -28,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
         buildStatusItem()
         applyConfig(select: true)
         watcher = ConfigWatcher { [weak self] in self?.applyConfig(select: false) }
+        NotificationCenter.default.addObserver(forName: .homieDownloadsChanged, object: nil, queue: .main) { [weak self] _ in self?.itemChanged() }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -72,6 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
             else { self.select(item, pane: self.focusedPane) }
         }
         sidebar.onContextMenu = { [weak self] item in self?.contextMenu(for: item) ?? NSMenu() }
+        sidebar.onSelectDownloads = { [weak self] in self?.showDownloads() }
         effect.addSubview(sidebar)
 
         split = NSSplitView()
@@ -192,7 +196,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
         ])
     }
 
+    @objc func showDownloads() {
+        if downloadsView == nil {
+            let v = DownloadsView(frame: .zero)
+            v.translatesAutoresizingMaskIntoConstraints = false
+            downloadsView = v
+        }
+        guard let v = downloadsView else { return }
+        closeSplit()
+        for item in items { item.webView?.isHidden = true }
+        if v.superview !== leftPane {
+            v.removeFromSuperview()
+            leftPane.addSubview(v)
+            NSLayoutConstraint.activate([
+                v.leadingAnchor.constraint(equalTo: leftPane.leadingAnchor),
+                v.trailingAnchor.constraint(equalTo: leftPane.trailingAnchor),
+                v.topAnchor.constraint(equalTo: leftPane.topAnchor),
+                v.bottomAnchor.constraint(equalTo: leftPane.bottomAnchor),
+            ])
+        }
+        v.isHidden = false
+        v.reload()
+        showingDownloads = true
+        sidebar.selected = nil
+        sidebar.secondary = nil
+        sidebar.downloadsSelected = true
+        sidebar.needsDisplay = true
+    }
+
     private func select(_ item: TabItem, pane: Pane) {
+        if showingDownloads {
+            downloadsView?.isHidden = true
+            showingDownloads = false
+            sidebar.downloadsSelected = false
+            if pane == .right { current = nil }
+        }
+        if pane == .right, current == nil {
+            return select(item, pane: .left)
+        }
         if pane == .right {
             if item === current {
                 // The left page asked to go right: swap, so both panes stay distinct.
@@ -242,7 +283,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
 
     @objc private func toggleSidebar() {
         sidebarHidden.toggle()
-        UserDefaults.standard.set(sidebarHidden, forKey: "sidebarHidden")
         sidebarView.isHidden = sidebarHidden
     }
 
@@ -251,6 +291,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
     @objc private func splitTab(_ sender: NSMenuItem) { select(index: sender.tag, pane: .right) }
 
     private func itemChanged() {
+        sidebar.activeDownloads = DownloadManager.shared.activeCount
         sidebar.needsDisplay = true
         let total = items.reduce(0) { $0 + $1.unread }
         NSApp.dockTile.badgeLabel = total > 0 ? "\(total)" : nil
@@ -301,6 +342,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
         if let id = response.notification.request.content.userInfo["tab"] as? String,
            let item = items.first(where: { $0.spec.id == id }) {
             select(item, pane: .left)
+        }
+        if let path = response.notification.request.content.userInfo["download"] as? String {
+            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
         }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -383,6 +427,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUs
         prev.keyEquivalentModifierMask = [.control, .shift]
         tabMenu.addItem(.separator())
         tabMenu.addItem(withTitle: "Hide Sidebar", action: #selector(toggleSidebar), keyEquivalent: "s")
+        let dl = tabMenu.addItem(withTitle: "Downloads", action: #selector(showDownloads), keyEquivalent: "j")
+        dl.keyEquivalentModifierMask = [.command, .shift]
         let unsplit = tabMenu.addItem(withTitle: "Close Split", action: #selector(closeSplitAction), keyEquivalent: "\\")
         unsplit.keyEquivalentModifierMask = [.command]
         tabMenu.addItem(.separator())

@@ -175,11 +175,16 @@ final class TabItem: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessa
             n += 1
             dest = downloads.appendingPathComponent(ext.isEmpty ? "\(base) \(n)" : "\(base) \(n).\(ext)")
         }
+        DownloadManager.shared.begin(download, file: dest, source: webView?.url ?? pinnedURL)
         completionHandler(dest)
     }
 
     func downloadDidFinish(_ download: WKDownload) {
-        NSSound(named: "Glass")?.play()
+        DownloadManager.shared.finish(download)
+    }
+
+    func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+        DownloadManager.shared.fail(download, error: error)
     }
 
     // MARK: WKUIDelegate

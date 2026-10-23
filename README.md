@@ -54,7 +54,9 @@ on each Mac.
 | Cmd+\\ | close the split |
 | Cmd+S | hide or show the sidebar (drag its edge to resize) |
 | right-click a tab | mute, badge, rename, split, reload, reset, remove |
+| Cmd+Shift+J | the Downloads page: drag a file out, double-click to open, right-click to reveal |
 | Cmd+, | open bookmarks.yml |
 
 Links that ask for a new window open in the default browser; Homie is not for
-browsing. Downloads go to ~/Downloads.
+browsing. Downloads go to ~/Downloads and are listed on the Downloads page at the bottom
+of the sidebar, where a row can be dragged into Finder or into a chat.
