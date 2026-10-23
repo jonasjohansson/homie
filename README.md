@@ -1,24 +1,28 @@
 # Homie
 
-A window with the sites that are always open. Native Mac, AppKit and WKWebView,
-no browser underneath. Nine pinned tabs in a sidebar, badges from their titles,
-chat notifications through macOS, one shared YAML for every machine.
+A sidebar browser. Pinned sites on top, shared between every Mac through one YAML
+file; everything else in a Today list that clears when you want it to. Electron,
+so it is Chromium with Chrome extensions, and the sidebar is plain HTML and CSS.
 
-Version 3 replaced the Electron app on 2026-10-23, the day after Arc's sunset was
-announced. The Electron versions are in the git history.
+Version 4 (2026-10-23) replaced the native WebKit app, which replaced the Electron
+v2 the day before. Arc's sunset started all of it; the earlier versions are in git.
 
 ## Install
 
     scripts/install.sh
 
-Builds `~/Applications/Homie.app`, links the shared bookmarks file and adds Homie
-to Login Items. `scripts/install.sh --check` reports what is out of date.
-`skynet/config/install.sh` calls it on every Mac.
+Builds `~/Applications/Homie.app` (about 250 MB, it is Chromium), links the shared
+bookmarks file and adds Homie to Login Items. `scripts/install.sh --check` reports
+what is out of date. `skynet/config/install.sh` calls it on every Mac. Needs node 20+.
+
+Make it the default browser from the Homie menu; links from other apps then open
+as Today tabs.
 
 ## Bookmarks
 
 `~/Library/Application Support/Homie/bookmarks.yml`, which install.sh links to
-`skynet/config/homie/bookmarks.yml`. Edits apply live.
+`skynet/config/homie/bookmarks.yml`. Edits apply live. Toggles from the app are
+written back as text, so comments and order survive.
 
 ```yaml
 groups:
@@ -33,30 +37,34 @@ groups:
         badge: false             # ignore the "(3)" in its title
 ```
 
-Logins stay per machine. Cookies live in WebKit's default store, so sign in once
-on each Mac.
+Logins, zoom per site, window frame, sidebar width and the Today list stay per
+machine. Extensions install from the Chrome Web Store (Homie menu) and live in
+`Application Support/Homie/Extensions`.
 
 ## Keys
 
 | | |
 |---|---|
-| Cmd+1…9 | tab by position |
+| Cmd+T | new tab: type a search or an address |
+| Cmd+L | edit the address of the current tab |
+| Cmd+F, Cmd+G | find in page, next match (Shift for previous) |
+| Cmd+1…9 | pinned tab by position |
 | Ctrl+Tab, Ctrl+Shift+Tab | next, previous tab |
-| Cmd+R | reload |
-| Cmd+Shift+R | back to the pinned page |
+| Cmd+W | close a Today tab; a pinned tab goes back to its page, or unloads |
+| Cmd+Shift+T | reopen the last closed tab |
+| Cmd+Shift+W | clear Today |
+| Cmd+D | pin the current page (Today tab: pick a group; pinned tab: replace its address) |
+| Cmd+R, Cmd+Shift+R | reload, back to the pinned page |
 | Cmd+[ Cmd+] | back, forward |
-| Cmd+Shift+C | copy the page address |
-| Cmd+Shift+O | open the page in the default browser |
 | Cmd+= Cmd+- Cmd+0 | zoom, remembered per site |
-| Cmd+N | add a page (URL from the clipboard if there is one) |
-| Cmd+D | pin the page the tab is showing now |
-| Shift-click, Cmd+Option+1…9 | open a tab on the right, side by side |
-| Cmd+\\ | close the split |
-| Cmd+S | hide or show the sidebar (drag its edge to resize) |
-| right-click a tab | mute, badge, rename, split, reload, reset, remove |
-| Cmd+Shift+J | the Downloads page: drag a file out, double-click to open, right-click to reveal |
+| Cmd+M | mute the tab |
+| Cmd+Shift+C | copy the page address |
+| Cmd+Shift+O | open the page in Chrome |
+| Cmd+Shift+S | hide or show the sidebar (drag its edge to resize) |
 | Cmd+, | open bookmarks.yml |
+| right-click a tab | pin, mute, badge, rename, reload, reset, unpin, close |
+| double-click a pinned tab | rename |
 
-Links that ask for a new window open in the default browser; Homie is not for
-browsing. Downloads go to ~/Downloads and are listed on the Downloads page at the bottom
-of the sidebar, where a row can be dragged into Finder or into a chat.
+Popups that need their opener (sign-in windows) open as windows; every other new
+window request becomes a Today tab. Downloads go to `~/Downloads` and show at the
+bottom of the sidebar: click to reveal, double-click to open.

@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # install.sh — build Homie, put it in ~/Applications, link the shared bookmarks,
 # add it to Login Items. Idempotent; --check reports without changing anything.
-#
-# Called by skynet/config/install.sh on the Mac mini only (Jonas, 2026-10-23); the
-# MacBook does not get Homie. Run by hand elsewhere only on purpose.
+# Called by skynet/config/install.sh on every Mac. Needs node 20+ and npm.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 CHECK=0; [ "${1:-}" = --check ] && CHECK=1
 say() { printf '  %-7s %s\n' "$1" "$2"; }
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 app="$HOME/Applications/Homie.app"
 cfg_dst="$HOME/Library/Application Support/Homie/bookmarks.yml"
@@ -32,17 +31,26 @@ else
 fi
 
 # --- the app: rebuild when any source is newer than the installed binary ----------
-newest=$(find Sources Resources Package.swift -type f -newer "$app/Contents/MacOS/Homie" 2>/dev/null | head -1 || true)
-if [ -x "$app/Contents/MacOS/Homie" ] && [ -z "$newest" ]; then
+bin="$app/Contents/MacOS/Homie"
+newest=$(find src package.json forge.config.js build -type f -newer "$bin" 2>/dev/null | head -1 || true)
+if [ -x "$bin" ] && [ -z "$newest" ]; then
   say ok "$app"
 elif [ $CHECK = 1 ]; then
   say DRIFT "$app is missing or older than the source"; drift=1
 else
-  scripts/build-app.sh
+  command -v npm >/dev/null || { say missing "npm (brew install node)"; exit 1; }
+  if [ ! -d node_modules ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
+    npm ci --no-audit --no-fund >/dev/null
+  fi
+  rm -rf out
+  npx electron-forge package >/dev/null
+  built="out/Homie-darwin-$(uname -m | sed 's/x86_64/x64/')/Homie.app"
+  [ -d "$built" ] || { say failed "no $built"; exit 1; }
+  codesign --force --deep --sign - "$built" >/dev/null 2>&1 || true
   running=0; pgrep -xq Homie && running=1
-  [ $running = 1 ] && osascript -e 'tell application "Homie" to quit' >/dev/null 2>&1 && sleep 1
+  [ $running = 1 ] && osascript -e 'tell application "Homie" to quit' >/dev/null 2>&1 && sleep 2
   mkdir -p "$HOME/Applications"
-  rm -rf "$app"; ditto build/Homie.app "$app"
+  rm -rf "$app"; ditto "$built" "$app"
   say built "$app"
   [ $running = 1 ] && open "$app"
 fi

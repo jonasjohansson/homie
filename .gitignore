@@ -1,6 +1,4 @@
-.build/
-build/Homie.app
+node_modules/
+out/
 .DS_Store
 .claude/
-*.xcodeproj
-.swiftpm/
