@@ -24,7 +24,8 @@ export function buildMenu(mgr, bookmarks) {
       { label: 'New Folder…', click: () => mgr.showPalette('folder', null) },
       { type: 'separator' },
       { label: 'Close Tab', accelerator: 'Cmd+W', click: () => { if (t()) mgr.close(t().id); } },
-      { label: 'Clear Today', accelerator: 'Cmd+Shift+W', click: () => mgr.clearToday() },
+      { label: 'Clear Today', accelerator: 'Cmd+Shift+K', click: () => mgr.clearToday() },   // Arc's key
+      { label: 'Clear Today', accelerator: 'Cmd+Shift+W', visible: false, click: () => mgr.clearToday() },
       { type: 'separator' },
       { label: 'Copy Address', accelerator: 'Cmd+Shift+C', click: () => { if (t()) clipboard.writeText(t().url); } },
       { label: 'Open in Chrome', accelerator: 'Cmd+Shift+O', click: () => { if (t()) openInChrome(t().url); } },
@@ -50,7 +51,8 @@ export function buildMenu(mgr, bookmarks) {
       { label: 'Actual Size', accelerator: 'Cmd+0', click: () => wc()?.setZoomLevel(0) },
       { type: 'separator' },
       { label: 'Downloads', accelerator: 'Cmd+Shift+J', click: () => mgr.showDownloads() },
-      { label: 'Hide Sidebar', accelerator: 'Cmd+Shift+S', click: () => mgr.toggleSidebar() },
+      { label: 'Hide Sidebar', accelerator: 'Cmd+S', click: () => mgr.toggleSidebar() },   // Arc's key
+      { label: 'Hide Sidebar', accelerator: 'Cmd+Shift+S', visible: false, click: () => mgr.toggleSidebar() },
       { role: 'togglefullscreen' },
       { type: 'separator' },
       { label: 'Developer Tools', accelerator: 'Cmd+Option+I', click: () => wc()?.toggleDevTools() },

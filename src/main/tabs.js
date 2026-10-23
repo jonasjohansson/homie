@@ -315,7 +315,7 @@ export class TabManager {
         }
         tabs.push(t);
       }
-      groups.push({ name: g.name, tabs });
+      groups.push({ name: g.name, icon: g.icon, tabs });
     }
     for (const t of old.values()) this.dropTab(t);
     this.groups = groups;
@@ -475,7 +475,7 @@ export class TabManager {
     this.bookmarks.place(t.pinnedUrl, label, groupName, index);   // syncBookmarks keeps t: it is in this.groups now
     this.push();
   }
-  pin(id, groupName) { this.moveTab(id, groupName, undefined); }
+  pin(id, groupName) { this.moveTab(id, groupName, undefined); }   // from the palette: a new or existing folder; the tab keeps its page
   repin(t, url) { if (t.kind !== 'pinned' || !url || url === t.pinnedUrl) return; const old = t.pinnedUrl; t.pinnedUrl = url; this.bookmarks.replaceUrl(old, url); }
   unpin(id) { this.moveTab(id, null, 0); }
 
@@ -490,8 +490,10 @@ export class TabManager {
   groupContextMenu(name, x, y) {
     const i = this.groups.findIndex((g) => g.name === name); if (i < 0) return;
     const items = [
-      { label: 'Rename Folder', click: () => this.sendUI('start-rename-group', name) },
+      { label: 'Rename', click: () => this.sendUI('start-rename-group', name) },
+      { label: 'Change Icon…', click: () => this.showPalette('icon', name) },
       { label: 'New Folder…', click: () => this.showPalette('folder', i + 1) },
+      { label: 'Copy All Links', click: () => clipboard.writeText(this.groups[i].tabs.map((t) => t.pinnedUrl).join('\n')) },
       { type: 'separator' },
       { label: this.collapsed(name) ? 'Expand' : 'Collapse', click: () => this.toggleCollapsed(name) },
       { label: 'Move Up', enabled: i > 0, click: () => this.bookmarks.moveGroup(name, i - 1) },
@@ -545,24 +547,28 @@ export class TabManager {
       items.push({ label: 'Pin to', submenu: this.groups.map((g) => ({ label: g.name, click: () => this.pin(id, g.name) })).concat(
         this.groups.length ? [{ type: 'separator' }] : [], [{ label: 'New group…', click: () => this.showPalette('pin', id) }]) });
     }
-    items.push({ label: t.muted ? 'Unmute' : 'Mute', click: () => this.setMuted(t, !t.muted) });
+    // wording follows Arc's tab menu: Rename, Edit Pinned Page, Copy Link, Duplicate, Mute, Move To, Unpin / Close and Keep Pinned
     if (t.kind === 'pinned') {
-      items.push({ label: 'Show badge', type: 'checkbox', checked: t.showsBadge, click: () => this.bookmarks.setField(t.pinnedUrl, 'badge', !t.showsBadge, true) });
-      items.push({ label: 'Rename…', click: () => this.sendUI('start-rename', id) });
-      items.push({ label: 'Edit URL…', click: () => this.showPalette('edit-url', id) });
-      items.push({ label: 'Move to', submenu: this.groups.map((g) => ({ label: g.name, type: 'checkbox', checked: g.tabs.includes(t), click: () => this.moveTab(id, g.name, undefined) })) });
+      items.push({ label: 'Rename', click: () => this.sendUI('start-rename', id) });
+      items.push({ label: 'Edit Pinned Page', submenu: [
+        { label: 'Replace Pinned URL with Current', enabled: t.away, click: () => this.repin(t, t.url) },
+        { label: 'Edit the Pinned URL…', click: () => this.showPalette('edit-url', id) },
+        { label: 'Back to Pinned URL', enabled: t.away, click: () => t.load(t.pinnedUrl) },
+      ] });
+      items.push({ label: 'Show Badge', type: 'checkbox', checked: t.showsBadge, click: () => this.bookmarks.setField(t.pinnedUrl, 'badge', !t.showsBadge, true) });
     }
+    items.push({ label: 'Copy Link', click: () => clipboard.writeText(t.url) });
+    items.push({ label: 'Duplicate', click: () => this.open(t.url, { after: t.kind === 'today' ? t : null }) });
+    items.push({ label: t.muted ? 'Unmute' : 'Mute', click: () => this.setMuted(t, !t.muted) });
+    items.push({ label: 'Open in Split View', enabled: false, click: () => {} });
+    items.push({ label: 'Move To', submenu: this.groups.map((g) => ({ label: g.name, type: 'checkbox', checked: g.tabs.includes(t), click: () => this.moveTab(id, g.name, undefined) })).concat(
+      [{ type: 'separator' }, { label: 'Today', type: 'checkbox', checked: t.kind === 'today', click: () => this.moveTab(id, null, 0) }, { label: 'New Folder…', click: () => this.showPalette('pin', id) }]) });
     items.push({ type: 'separator' });
     items.push({ label: 'Reload', enabled: t.loaded, click: () => t.wc?.reload() });
-    if (t.kind === 'pinned') {
-      items.push({ label: 'Reset to pinned page', enabled: t.loaded, click: () => t.load(t.pinnedUrl) });
-      if (t.away) items.push({ label: 'Pin this page instead', click: () => this.repin(t, t.url) });
-    }
-    items.push({ label: 'Copy address', click: () => clipboard.writeText(t.url) });
     items.push({ label: 'Open in Chrome', click: () => openInChrome(t.url) });
     items.push({ type: 'separator' });
     if (t.kind === 'pinned') {
-      items.push({ label: t.loaded ? 'Unload' : 'Load', click: () => (t.loaded ? this.close(id) : t.load()) });
+      items.push({ label: t.loaded ? 'Close and Keep Pinned' : 'Load', click: () => (t.loaded ? this.close(id) : t.load()) });
       items.push({ label: 'Unpin', click: () => this.unpin(id) });
     } else {
       items.push({ label: 'Close', click: () => this.close(id) });
@@ -633,7 +639,7 @@ export class TabManager {
     const a = this.active;
     const h = a?.wc && !a.wc.isDestroyed() ? a.wc.navigationHistory : null;
     return {
-      groups: this.groups.map((g) => ({ name: g.name, collapsed: this.collapsed(g.name), tabs: g.tabs.map((t) => t.dto()) })),
+      groups: this.groups.map((g) => ({ name: g.name, icon: g.icon || '', collapsed: this.collapsed(g.name), tabs: g.tabs.map((t) => t.dto()) })),
       today: this.today.map((t) => t.dto()),
       activeId: a?.id ?? null,
       url: a?.url || '',
@@ -673,6 +679,15 @@ export class TabManager {
     ipcMain.on('move', (e, id, group, index) => fromUI(e) && this.moveTab(Number(id), group == null ? null : String(group), Number(index)));
     ipcMain.on('group-context', (e, name, x, y) => fromUI(e) && this.groupContextMenu(String(name), x, y));
     ipcMain.on('collapse', (e, name) => fromUI(e) && this.toggleCollapsed(String(name)));
+    ipcMain.on('group-icon', (e, name, icon) => fromUI(e) && this.bookmarks.setGroupField(String(name), 'icon', String(icon || '').trim().slice(0, 4), ''));
+    ipcMain.on('reset', (e, id) => { if (!fromUI(e)) return; const t = this.tabs.get(id); if (t?.kind === 'pinned') { if (t.away) t.load(t.pinnedUrl); this.activate(id); } });
+    ipcMain.on('plus-menu', (e, x, y) => {
+      if (!fromUI(e)) return;
+      Menu.buildFromTemplate([
+        { label: 'New Tab', accelerator: 'Cmd+T', click: () => this.showPalette('new') },
+        { label: 'New Folder…', click: () => this.showPalette('folder', null) },
+      ]).popup({ window: this.win, x: Math.round(x), y: Math.round(y) });
+    });
     ipcMain.on('rename-group', (e, oldName, newName) => fromUI(e) && this.bookmarks.renameGroup(String(oldName), String(newName || '').trim()));
     ipcMain.on('new-group', (e, name, index) => fromUI(e) && name && this.bookmarks.addGroup(String(name).trim(), index == null ? undefined : Number(index)));
     ipcMain.on('set-url', (e, id, url) => { if (!fromUI(e)) return; const t = this.tabs.get(id); const r = resolveInput(String(url || '')); if (t?.kind === 'pinned' && r && !r.includes('google.com/search?q=')) this.repin(t, r); });

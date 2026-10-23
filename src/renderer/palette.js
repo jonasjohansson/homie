@@ -9,9 +9,9 @@ homie.on('state', (s) => { S = s; });
 homie.on('open', (m, a) => {
   mode = m; arg = a; pinTarget = m === 'pin' ? a : null;
   document.body.className = m;
-  omni.placeholder = { find: 'Find in page', pin: 'Pin to folder', new: 'Search or enter address', folder: 'Folder name', 'edit-url': 'Pinned address' }[m] || 'Edit address';
+  omni.placeholder = { find: 'Find in page', pin: 'Pin to folder', new: 'Search or enter address', folder: 'Folder name', 'edit-url': 'Pinned address', icon: 'An emoji for the folder (empty removes it)' }[m] || 'Edit address';
   const pinned = m === 'edit-url' ? S.groups.flatMap((g) => g.tabs).find((t) => t.id === a) : null;
-  omni.value = m === 'url' ? S.url : m === 'edit-url' ? (pinned?.pinnedUrl || '') : '';
+  omni.value = m === 'url' ? S.url : m === 'edit-url' ? (pinned?.pinnedUrl || '') : m === 'icon' ? (S.groups.find((g) => g.name === a)?.icon || '') : '';
   showItems(m === 'pin' ? S.groups.map((g) => ({ kind: 'group', title: g.name })) : []);
   omni.focus(); omni.select();
 });
@@ -25,7 +25,7 @@ function close() {
 
 omni.addEventListener('input', () => {
   if (mode === 'find') { homie.send('find', omni.value, true, true); return; }
-  if (mode === 'folder' || mode === 'edit-url') return;
+  if (mode === 'folder' || mode === 'edit-url' || mode === 'icon') return;
   if (mode === 'pin') { showItems(S.groups.filter((g) => g.name.toLowerCase().includes(omni.value.toLowerCase())).map((g) => ({ kind: 'group', title: g.name }))); return; }
   clearTimeout(timer);
   timer = setTimeout(async () => { const q = omni.value; if (!q.trim()) return showItems([]); showItems(await homie.invoke('suggest', q)); }, 40);
@@ -38,6 +38,7 @@ omni.addEventListener('keydown', (e) => {
   if (mode === 'find') { homie.send('find', omni.value, !e.shiftKey, false); return; }
   if (mode === 'pin') { const name = (sel >= 0 ? items[sel].title : omni.value).trim(); if (name && pinTarget != null) homie.send('pin-new-group', pinTarget, name); close(); return; }
   if (mode === 'folder') { const name = omni.value.trim(); if (name) homie.send('new-group', name, arg); close(); return; }
+  if (mode === 'icon') { homie.send('group-icon', arg, omni.value.trim()); close(); return; }
   if (mode === 'edit-url') { const u = omni.value.trim(); if (u) homie.send('set-url', arg, u); close(); return; }
   const it = sel >= 0 ? items[sel] : null;
   if (it?.kind === 'tab') homie.send('activate', it.id);

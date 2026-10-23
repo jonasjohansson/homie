@@ -40,7 +40,8 @@ function render() {
       h.ondblclick = (e) => { e.preventDefault(); startRenameGroup(sec.dataset.name); };
     } else sections.delete(g.name);
     if (sec.classList.contains('collapsed') !== !!g.collapsed) { sec.classList.toggle('collapsed', !!g.collapsed); }
-    sec.querySelector('h2 .folder').innerHTML = g.collapsed ? FOLDER : FOLDER_OPEN;
+    const fi = sec.querySelector('h2 .folder'); const want = (g.collapsed ? 'c' : 'o') + (g.icon || '');
+    if (fi.dataset.v !== want) { fi.dataset.v = want; fi.innerHTML = (g.collapsed ? FOLDER : FOLDER_OPEN) + (g.icon ? `<span class="emoji">${g.icon.replace(/[<>&]/g, '')}</span>` : ''); }
     if (sec !== cursor) groupsEl.insertBefore(sec, cursor); else cursor = cursor.nextSibling;
     reconcile(sec, g.tabs, sec.querySelector('h2'));
   }
@@ -94,6 +95,7 @@ function row(t) {
   el.dataset.id = t.id; el.dataset.sig = signature(t);
   const ico = document.createElement('span'); ico.className = 'ico';
   if (t.favicon) { const img = document.createElement('img'); img.src = t.favicon; img.onerror = () => { img.replaceWith(letter(t)); }; ico.append(img); } else ico.append(letter(t));
+  if (t.away) { ico.title = 'Back to Pinned URL'; ico.onclick = (e) => { e.stopPropagation(); homie.send('reset', t.id); }; }   // Arc: the favicon of an away tab goes home
   const slash = document.createElement('span'); slash.className = 'slash'; slash.textContent = '/';
   const label = document.createElement('span'); label.className = 'label'; label.textContent = t.kind === 'pinned' && !t.away ? t.label : (t.title || host(t.url) || t.url);   // Arc: an away tab shows "/ page title"
   label.title = t.url;
@@ -185,7 +187,7 @@ $('#fwd').addEventListener('click', () => homie.send('nav', 'forward'));
 $('#reload').addEventListener('click', () => homie.send('nav', 'reload'));
 $('#address').addEventListener('click', () => homie.send('palette', 'url'));
 $('#newTab').addEventListener('click', () => homie.send('palette', 'new'));
-$('#plus').addEventListener('click', () => homie.send('palette', 'new'));
+$('#plus').addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); homie.send('plus-menu', r.left, r.bottom); });   // Arc: New Tab, New Folder…
 $('#clearToday').addEventListener('click', () => homie.send('clear-today'));
 $('#toggle').addEventListener('click', () => homie.send('toggle-sidebar'));
 $('#toggle2').addEventListener('click', () => homie.send('toggle-sidebar'));

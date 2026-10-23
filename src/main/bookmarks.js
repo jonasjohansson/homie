@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import YAML from 'yaml';
 
-const STARTER = `# Homie — the pinned sidebar. Per tab: url (required), label, muted, badge (default true).
+const STARTER = `# Homie — the pinned sidebar. Per group: name, icon (an emoji). Per tab: url (required), label, muted, badge (default true).
 # tint: "#0d0d1f #170e1f"   # optional window colour, one or two (top bottom)
 groups:
   - name: Homie
@@ -47,7 +47,7 @@ export class Bookmarks {
         if (!label) { try { label = new URL(t.url).hostname.replace(/^www\./, ''); } catch { label = t.url; } }
         tabs.push({ url: String(t.url), label: String(label), muted: !!t.muted, badge: t.badge !== false });
       }
-      groups.push({ name: String(g.name || ''), tabs });
+      groups.push({ name: String(g.name || ''), icon: typeof g.icon === 'string' ? g.icon.trim().slice(0, 4) : '', tabs });
     }
     this.groups = groups;
     this.tint = typeof doc.tint === 'string' && /^#[0-9a-f]{6}(\s+#[0-9a-f]{6})?$/i.test(doc.tint.trim()) ? doc.tint.trim() : '';   // one colour, or two for a top-to-bottom gradient
@@ -141,6 +141,10 @@ export class Bookmarks {
       const groups = doc.get('groups');
       groups.items.splice(Math.max(0, Math.min(index ?? groups.items.length, groups.items.length)), 0, doc.createNode({ name, tabs: [] }));
     });
+  }
+
+  setGroupField(name, key, value, dflt) {
+    this.edit((doc) => { const g = this.group(doc, name); if (!g) return false; if (value === dflt) g.delete(key); else g.set(key, value); });
   }
 
   renameGroup(oldName, newName) {

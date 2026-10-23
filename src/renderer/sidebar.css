@@ -4,8 +4,8 @@
   --m: 10px;              /* card margin, MARGIN in tabs.js */
   --tb: 32px;             /* toolbar height, TOOLBAR in tabs.js */
   --radius: 12px;
-  --row: 34px;
-  --pitch: 7px;           /* gap between rows: 41 px pitch */
+  --row: 36px;
+  --pitch: 5px;           /* gap between rows: 41 px pitch (pill 36, measured again 2026-10-23) */
   --icon: 16px;
   --font: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
   --fs: 14px;
@@ -69,7 +69,9 @@ h2 { height: var(--row); margin: 0 8px var(--pitch); padding: 0 0 0 10px; displa
 h2 .folder { width: 18px; height: 16px; display: grid; place-items: center; color: #7b74f2; }
 h2 .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 h2 input.rename { width: 100%; height: 22px; font: inherit; font-weight: 600; color: var(--fg); background: var(--field); border: 0; border-radius: 4px; padding: 0 4px; outline: none; margin-right: 8px; }
-section.group.collapsed .tab { display: none; }
+section.group.collapsed .tab:not(.active) { display: none; }   /* Arc: a folded folder still shows its open tab */
+h2 .folder { position: relative; }
+h2 .folder .emoji { position: absolute; left: 0; right: 0; top: 2px; bottom: 0; display: grid; place-items: center; font-size: 9px; line-height: 1; }
 h2 .folder svg { display: block; }
 h2 button { margin-left: auto; margin-right: 8px; font-size: 11px; font-weight: 500; color: var(--fg-dim); }
 /* Arc: a hairline between pinned and Today, "Clear" at its right while the pointer is over the Today tabs; "+ New Tab" is the first Today row. */
@@ -78,7 +80,7 @@ h2 button { margin-left: auto; margin-right: 8px; font-size: 11px; font-weight: 
 #clearToday { position: absolute; right: -8px; top: -12px; height: 24px; padding: 0 8px; font-size: 11px; font-weight: 500; color: var(--fg-dim); background: linear-gradient(var(--tint-top), var(--tint-bottom)); opacity: 0; transition: opacity var(--t-hover) var(--ease-out); }
 #todaySection.has:hover #clearToday { opacity: 1; }
 
-.tab { height: var(--row); margin: 0 8px var(--pitch); padding: 0 6px 0 10px; display: grid; grid-template-columns: var(--icon) auto 1fr auto auto; gap: 7px; align-items: center; border-radius: 8px; white-space: nowrap; color: var(--fg-tab); font-weight: 500; }
+.tab { height: var(--row); margin: 0 8px var(--pitch); padding: 0 6px 0 10px; display: grid; grid-template-columns: var(--icon) auto 1fr auto auto; gap: 7px; align-items: center; border-radius: 12px; white-space: nowrap; color: var(--fg-tab); font-weight: 500; }
 .group .tab { margin-left: 24px; padding-left: 10px; }   /* Arc: child highlight starts 24 pt in, favicon at 33.5 pt */
 .tab { transition: background-color var(--t-hover) var(--ease-out), height var(--t-row) var(--ease-out), margin var(--t-row) var(--ease-out), opacity var(--t-row) var(--ease-out); }
 .tab:hover { background: var(--hover); }
@@ -89,7 +91,7 @@ h2 button { margin-left: auto; margin-right: 8px; font-size: 11px; font-weight: 
 .tab .ico { width: var(--icon); height: var(--icon); display: grid; place-items: center; }
 .tab .ico img { width: var(--icon); height: var(--icon); object-fit: contain; }
 .tab .ico .letter { width: var(--icon); height: var(--icon); font-size: 10px; font-weight: 600; line-height: var(--icon); text-align: center; border-radius: 4px; background: var(--field); color: var(--fg-muted); }
-.tab .slash { color: var(--fg-muted); font-size: 13px; visibility: hidden; margin: 0 -2px; }
+.tab .slash { color: #555561; font-size: 13px; visibility: hidden; margin: 0 -2px; }   /* Arc: #555561 */
 .tab.away .slash { visibility: visible; }   /* Arc: the slash means the tab has left its pinned page */
 .tab .label { overflow: hidden; text-overflow: ellipsis; }
 .tab.loading .label, .tab.pinned:not(.loaded) .label, .tab.today:not(.loaded) .label { color: var(--fg-muted); }
@@ -98,8 +100,10 @@ h2 button { margin-left: auto; margin-right: 8px; font-size: 11px; font-weight: 
 .tab .badge:empty { display: none; }
 .tab .x { width: 20px; height: 20px; font-size: 14px; color: var(--fg-muted); border-radius: 4px; visibility: hidden; }
 .tab.away .x, .tab:hover .x { visibility: visible; }   /* Arc: the × appears on hover; ↺ stays while away */
+.tab.pinned:not(.loaded):hover .x { visibility: hidden; }   /* an unloaded pin has nothing to close */
+.tab.away .ico { cursor: default; }
 .tab input.rename { width: 100%; height: 22px; font: inherit; color: var(--fg); background: var(--field); border: 0; border-radius: 4px; padding: 0 4px; outline: none; }
-#newTab { grid-template-columns: var(--icon) 1fr; color: var(--fg-dim); font-weight: 500; }
+#newTab { grid-template-columns: var(--icon) 1fr; color: #7b7982; font-weight: 500; }   /* Arc: #7b7982 */
 #newTab .glyph { font-size: 16px; line-height: 1; }
 
 #bottom { flex: none; height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px 0 16px; color: var(--fg-dim); }
@@ -110,7 +114,7 @@ h2 button { margin-left: auto; margin-right: 8px; font-size: 11px; font-weight: 
 
 /* drag and drop: the lifted row follows the pointer; a gap of one row pitch opens where it would land */
 .tab.dragging { display: none; }
-.gap { height: var(--row); margin: 0 8px var(--pitch); border-radius: 8px; background: var(--hover); animation: row-enter var(--t-row) var(--ease-out); }
+.gap { height: var(--row); margin: 0 8px var(--pitch); border-radius: 12px; background: var(--hover); animation: row-enter var(--t-row) var(--ease-out); }
 .group .gap { margin-left: 24px; }
 .tab.ghost { position: fixed; z-index: 10; margin: 0; pointer-events: none; background: var(--active); opacity: .92; }
 body.dragging .tab:hover { background: none; }
@@ -122,7 +126,7 @@ body.dragging { cursor: default; }
 /* --- the card: toolbar on top, the page view sits over the rest -------------------- */
 #card { position: absolute; left: var(--w); top: var(--m); right: var(--m); bottom: var(--m); border-radius: var(--radius); background: var(--card); color: var(--card-fg); transition: left var(--t-sidebar) var(--ease-out); }
 body.sidebar-hidden #card { left: var(--m); }
-#toolbar { height: var(--tb); display: grid; grid-template-columns: 1fr minmax(0, 2fr) 1fr; align-items: center; padding: 0 8px 0 5px; transition: padding-left var(--t-sidebar) var(--ease-out); }
+#toolbar { height: var(--tb); display: grid; grid-template-columns: 1fr minmax(0, 2fr) 1fr; align-items: center; padding: 0 8px 0 7px; border-bottom: 1px solid color-mix(in srgb, var(--card), var(--card-fg) 6%);   /* Arc: first icon 13.5 pt in, a 5% hairline under the strip */ transition: padding-left var(--t-sidebar) var(--ease-out); }
 body.sidebar-hidden #toolbar { padding-left: 76px; }
 #nav { display: flex; gap: 7px; }   /* Arc: nav icons on a 37 pt pitch, first centre 20 pt from the card edge */
 #nav button { width: 30px; height: 28px; color: var(--card-muted); border-radius: 6px; transition: background-color var(--t-hover) var(--ease-out); }
