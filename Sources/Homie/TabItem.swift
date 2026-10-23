@@ -42,7 +42,6 @@ final class TabItem: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessa
         cfg.applicationNameForUserAgent = "Version/26.0 Safari/605.1.15"
         cfg.mediaTypesRequiringUserActionForPlayback = []
         cfg.preferences.isElementFullscreenEnabled = true
-        cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")
         let ucc = WKUserContentController()
         ucc.add(self, name: "homie")
         ucc.addUserScript(WKUserScript(source: Scripts.notifications, injectionTime: .atDocumentStart, forMainFrameOnly: false))
@@ -75,7 +74,14 @@ final class TabItem: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessa
 
     func applyMute() {
         guard let webView, TabItem.hasPageMute else { return }
-        webView.setValue(muted ? 1 : 0, forKey: "_pageMuted")
+        // Call -[WKWebView _setPageMuted:] directly. Key-value coding on "_pageMuted" has no
+        // matching setter, so it threw NSUnknownKeyException from inside
+        // applicationDidFinishLaunching; AppKit swallowed it and the window was never ordered
+        // front (found 2026-10-23: app running, no window until a Dock reopen).
+        let sel = NSSelectorFromString("_setPageMuted:")
+        typealias SetMuted = @convention(c) (AnyObject, Selector, UInt) -> Void
+        let imp = unsafeBitCast(webView.method(for: sel), to: SetMuted.self)
+        imp(webView, sel, muted ? 1 : 0)   // _WKMediaMutedState: 1 = audio muted
     }
 
     private var zoomKey: String { "zoom:" + (pinnedURL.host ?? spec.url) }
