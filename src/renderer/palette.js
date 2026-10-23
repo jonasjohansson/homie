@@ -1,16 +1,17 @@
 // The floating command bar: Cmd+T (new tab), Cmd+L (edit address), Cmd+F (find),
-// Cmd+D on a Today tab (pick a group). Sized by main to fit its rows.
+// Cmd+D on a Today tab (pick a group), 'folder' (name a new folder), 'edit-url' (a pinned tab's URL). Sized by main to fit its rows.
 const omni = document.getElementById('omni'), suggest = document.getElementById('suggest');
 let S = { groups: [], url: '' };
-let mode = 'url', pinTarget = null, items = [], sel = -1, timer = null;
+let mode = 'url', pinTarget = null, arg = null, items = [], sel = -1, timer = null;
 const INPUT = 48, ROW = 36, LIST_PAD = 9;
 
 homie.on('state', (s) => { S = s; });
-homie.on('open', (m, arg) => {
-  mode = m; pinTarget = m === 'pin' ? arg : null;
+homie.on('open', (m, a) => {
+  mode = m; arg = a; pinTarget = m === 'pin' ? a : null;
   document.body.className = m;
-  omni.placeholder = m === 'find' ? 'Find in page' : m === 'pin' ? 'Pin to group' : m === 'new' ? 'Search or enter address' : 'Edit address';
-  omni.value = m === 'url' ? S.url : m === 'pin' ? '' : '';
+  omni.placeholder = { find: 'Find in page', pin: 'Pin to folder', new: 'Search or enter address', folder: 'Folder name', 'edit-url': 'Pinned address' }[m] || 'Edit address';
+  const pinned = m === 'edit-url' ? S.groups.flatMap((g) => g.tabs).find((t) => t.id === a) : null;
+  omni.value = m === 'url' ? S.url : m === 'edit-url' ? (pinned?.pinnedUrl || '') : '';
   showItems(m === 'pin' ? S.groups.map((g) => ({ kind: 'group', title: g.name })) : []);
   omni.focus(); omni.select();
 });
@@ -24,6 +25,7 @@ function close() {
 
 omni.addEventListener('input', () => {
   if (mode === 'find') { homie.send('find', omni.value, true, true); return; }
+  if (mode === 'folder' || mode === 'edit-url') return;
   if (mode === 'pin') { showItems(S.groups.filter((g) => g.name.toLowerCase().includes(omni.value.toLowerCase())).map((g) => ({ kind: 'group', title: g.name }))); return; }
   clearTimeout(timer);
   timer = setTimeout(async () => { const q = omni.value; if (!q.trim()) return showItems([]); showItems(await homie.invoke('suggest', q)); }, 40);
@@ -35,6 +37,8 @@ omni.addEventListener('keydown', (e) => {
   e.preventDefault();
   if (mode === 'find') { homie.send('find', omni.value, !e.shiftKey, false); return; }
   if (mode === 'pin') { const name = (sel >= 0 ? items[sel].title : omni.value).trim(); if (name && pinTarget != null) homie.send('pin-new-group', pinTarget, name); close(); return; }
+  if (mode === 'folder') { const name = omni.value.trim(); if (name) homie.send('new-group', name, arg); close(); return; }
+  if (mode === 'edit-url') { const u = omni.value.trim(); if (u) homie.send('set-url', arg, u); close(); return; }
   const it = sel >= 0 ? items[sel] : null;
   if (it?.kind === 'tab') homie.send('activate', it.id);
   else if (omni.value.trim() || it) homie.send('navigate', it ? it.url : omni.value, { newTab: mode === 'new' || e.metaKey });

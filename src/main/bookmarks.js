@@ -58,7 +58,7 @@ export class Bookmarks {
     const dir = path.dirname(this.realPath);
     const base = path.basename(this.realPath);
     let timer = null;
-    const kick = () => { clearTimeout(timer); timer = setTimeout(() => { if (this.read()) this.onChange(); }, 250); };
+    const kick = () => { if (Date.now() < (this.ownWriteUntil || 0)) return; clearTimeout(timer); timer = setTimeout(() => { if (this.read()) this.onChange(); }, 250); };   // an own write already synced
     try {
       this.watcher = fs.watch(dir, (ev, name) => { if (!name || name === base || name === path.basename(this.path)) kick(); });
     } catch (e) { console.error('watch:', e.message); }
@@ -72,6 +72,7 @@ export class Bookmarks {
     if (!doc.has('groups')) doc.set('groups', doc.createNode([]));
     const changed = fn(doc);
     if (changed === false) return;
+    this.ownWriteUntil = Date.now() + 1500;
     fs.writeFileSync(this.path, doc.toString({ lineWidth: 0 }));
     if (this.read()) this.onChange();
   }
@@ -109,6 +110,52 @@ export class Bookmarks {
       const hit = this.findTab(doc, url);
       if (!hit) return false;
       hit.tabs.items.splice(hit.tabs.items.indexOf(hit.tab), 1);
+    });
+  }
+
+  // --- order and folders: the sidebar's drag and drop and folder menus end up here --------
+  group(doc, name, create = false) {
+    const groups = doc.get('groups');
+    let g = groups.items.find((x) => x.get('name') === name);
+    if (!g && create) { g = doc.createNode({ name, tabs: [] }); groups.add(g); }
+    if (g && !g.has('tabs')) g.set('tabs', doc.createNode([]));
+    if (g) g.get('tabs').flow = false;   // an empty seq is created in flow style; keep the file block-styled
+    return g;
+  }
+
+  // put a tab (pinned or not yet) into groupName at index; index past the end appends
+  place(url, label, groupName, index) {
+    this.edit((doc) => {
+      const hit = this.findTab(doc, url);
+      let node = hit ? hit.tab : doc.createNode(label ? { url, label } : { url });
+      if (hit) hit.tabs.items.splice(hit.tabs.items.indexOf(hit.tab), 1);
+      const tabs = this.group(doc, groupName, true).get('tabs');
+      node.flow = false;
+      tabs.items.splice(Math.max(0, Math.min(index ?? tabs.items.length, tabs.items.length)), 0, node);
+    });
+  }
+
+  addGroup(name, index) {
+    this.edit((doc) => {
+      if (this.group(doc, name)) return false;
+      const groups = doc.get('groups');
+      groups.items.splice(Math.max(0, Math.min(index ?? groups.items.length, groups.items.length)), 0, doc.createNode({ name, tabs: [] }));
+    });
+  }
+
+  renameGroup(oldName, newName) {
+    this.edit((doc) => { const g = this.group(doc, oldName); if (!g || !newName || this.group(doc, newName)) return false; g.set('name', newName); });
+  }
+
+  removeGroup(name) {
+    this.edit((doc) => { const groups = doc.get('groups'); const g = this.group(doc, name); if (!g) return false; groups.items.splice(groups.items.indexOf(g), 1); });
+  }
+
+  moveGroup(name, index) {
+    this.edit((doc) => {
+      const groups = doc.get('groups'); const g = this.group(doc, name); if (!g) return false;
+      groups.items.splice(groups.items.indexOf(g), 1);
+      groups.items.splice(Math.max(0, Math.min(index, groups.items.length)), 0, g);
     });
   }
 

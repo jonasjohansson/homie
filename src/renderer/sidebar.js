@@ -1,9 +1,11 @@
 const $ = (s) => document.querySelector(s);
 const groupsEl = $('#groups'), todayEl = $('#today'), todaySection = $('#todaySection'), dlRow = $('#dlrow'), addressEl = $('#address .host');
 let S = { groups: [], today: [], activeId: null, url: '', downloads: null };
-let renaming = null;
+let renaming = null, drag = null, renderAfterDrag = false, lastActive = null;
 
 const FOLDER = '<svg width="18" height="16" viewBox="0 0 18 16"><path d="M1 3.2A1.7 1.7 0 0 1 2.7 1.5h3.9l1.9 1.9h6.8A1.7 1.7 0 0 1 17 5.1v7.7a1.7 1.7 0 0 1-1.7 1.7H2.7A1.7 1.7 0 0 1 1 12.8z" fill="currentColor"/><path d="M1 6.2h16v6.6a1.7 1.7 0 0 1-1.7 1.7H2.7A1.7 1.7 0 0 1 1 12.8z" fill="#fff" opacity=".18"/></svg>';
+// the open folder, for an expanded group: the front flap tilts out
+const FOLDER_OPEN = '<svg width="18" height="16" viewBox="0 0 18 16"><path d="M1 3.2A1.7 1.7 0 0 1 2.7 1.5h3.9l1.9 1.9h6.8A1.7 1.7 0 0 1 17 5.1v1.4H1z" fill="currentColor"/><path d="M3.2 7.2h13.9a1 1 0 0 1 .96 1.27l-1.5 5.3a1.7 1.7 0 0 1-1.63 1.23H2.7A1.7 1.7 0 0 1 1 13.3V8.4z" fill="currentColor"/><path d="M3.2 7.2h13.9a1 1 0 0 1 .96 1.27l-1.5 5.3a1.7 1.7 0 0 1-1.63 1.23H2.7A1.7 1.7 0 0 1 1 13.3V8.4z" fill="#fff" opacity=".22"/></svg>';
 
 homie.on('state', (s) => {
   S = s;
@@ -17,9 +19,11 @@ homie.on('state', (s) => {
 });
 homie.on('sidebar-width', (w) => document.documentElement.style.setProperty('--w', w + 'px'));
 homie.on('start-rename', (id) => startRename(id));
+homie.on('start-rename-group', (name) => startRenameGroup(name));
 
 function render() {
   if (renaming) return;
+  if (drag) { renderAfterDrag = true; return; }
   // groups: sections keyed by name, rows keyed by tab id, so rows can enter and leave in place
   const sections = new Map([...groupsEl.querySelectorAll('section.group')].map((el) => [el.dataset.name, el]));
   let cursor = groupsEl.firstChild;
@@ -28,10 +32,15 @@ function render() {
     if (!sec) {
       sec = document.createElement('section'); sec.className = 'group'; sec.dataset.name = g.name;
       const h = document.createElement('h2');
-      const f = document.createElement('span'); f.className = 'folder'; f.innerHTML = FOLDER;
-      const n = document.createElement('span'); n.textContent = g.name;
+      const f = document.createElement('span'); f.className = 'folder';
+      const n = document.createElement('span'); n.className = 'name'; n.textContent = g.name;
       h.append(f, n); sec.append(h);
+      h.onclick = () => { if (!h.querySelector('input')) homie.send('collapse', sec.dataset.name); };   // Arc: a click on the folder row folds it
+      h.oncontextmenu = (e) => { e.preventDefault(); homie.send('group-context', sec.dataset.name, e.clientX, e.clientY); };
+      h.ondblclick = (e) => { e.preventDefault(); startRenameGroup(sec.dataset.name); };
     } else sections.delete(g.name);
+    if (sec.classList.contains('collapsed') !== !!g.collapsed) { sec.classList.toggle('collapsed', !!g.collapsed); }
+    sec.querySelector('h2 .folder').innerHTML = g.collapsed ? FOLDER : FOLDER_OPEN;
     if (sec !== cursor) groupsEl.insertBefore(sec, cursor); else cursor = cursor.nextSibling;
     reconcile(sec, g.tabs, sec.querySelector('h2'));
   }
@@ -40,7 +49,7 @@ function render() {
   todaySection.classList.toggle('has', S.today.length > 0 || !!todayEl.querySelector('.tab.leave'));
   $('#back').disabled = !S.canGoBack; $('#fwd').disabled = !S.canGoForward;
   addressEl.textContent = host(S.url);
-  const act = document.querySelector('.tab.active'); if (act) act.scrollIntoView({ block: 'nearest' });
+  if (S.activeId !== lastActive) { lastActive = S.activeId; const act = document.querySelector('.tab.active'); if (act) act.scrollIntoView({ block: 'nearest' }); }   // only on a switch, never while scrolling
   const d = S.downloads, meta = dlRow.querySelector('.meta');
   dlRow.classList.toggle('active', !!S.downloadsActive);
   if (!d) meta.textContent = '';
@@ -86,9 +95,10 @@ function row(t) {
   const ico = document.createElement('span'); ico.className = 'ico';
   if (t.favicon) { const img = document.createElement('img'); img.src = t.favicon; img.onerror = () => { img.replaceWith(letter(t)); }; ico.append(img); } else ico.append(letter(t));
   const slash = document.createElement('span'); slash.className = 'slash'; slash.textContent = '/';
-  const label = document.createElement('span'); label.className = 'label'; label.textContent = t.kind === 'pinned' && !t.away ? t.label : (t.title || host(t.url) || t.url);   // Arc: an away tab shows "/ page title" label.title = t.url;
+  const label = document.createElement('span'); label.className = 'label'; label.textContent = t.kind === 'pinned' && !t.away ? t.label : (t.title || host(t.url) || t.url);   // Arc: an away tab shows "/ page title"
+  label.title = t.url;
   const badge = document.createElement('span'); badge.className = 'badge'; if (t.unread > 0) badge.textContent = t.unread > 99 ? '99+' : String(t.unread);
-  const x = document.createElement('button'); x.className = 'x'; x.textContent = t.kind === 'pinned' ? '↺' : '×'; x.title = t.kind === 'pinned' ? 'Back to the pinned page' : 'Close';
+  const x = document.createElement('button'); x.className = 'x'; x.textContent = t.away ? '↺' : '×'; x.title = t.away ? 'Back to the pinned page' : t.kind === 'pinned' ? 'Unload' : 'Close';   // Arc: × unloads a pinned tab, ↺ only while it is away
   x.addEventListener('click', (e) => { e.stopPropagation(); homie.send('close', t.id); });
   el.append(ico, slash, label, badge, x);
   el.onclick = () => homie.send('activate', Number(el.dataset.id));
@@ -101,12 +111,70 @@ function row(t) {
 function letter(t) { const s = document.createElement('span'); s.className = 'letter'; s.textContent = ((t.label || t.title || t.url).replace(/^https?:\/\/(www\.)?/, '')[0] || '?').toUpperCase(); return s; }
 function host(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u === 'homie://downloads' ? 'Downloads' : ''; } }
 
+function startRenameGroup(name) {
+  const sec = document.querySelector(`section.group[data-name="${CSS.escape(name)}"]`); if (!sec) return;
+  const label = sec.querySelector('h2 .name');
+  const input = document.createElement('input'); input.className = 'rename'; input.value = name;
+  renaming = 'group:' + name; label.replaceWith(input); input.focus(); input.select();
+  const done = (commit) => { if (!renaming) return; renaming = null; const v = input.value.trim(); if (commit && v && v !== name) homie.send('rename-group', name, v); input.replaceWith(label); render(); };
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(true); else if (e.key === 'Escape') done(false); e.stopPropagation(); });
+  input.addEventListener('blur', () => done(true));
+  input.addEventListener('click', (e) => e.stopPropagation());
+}
+
+// --- drag and drop: a row lifts under the pointer, the others close and open a gap -------
+// Arc's model: drag a Today tab up into a folder to pin it, a pinned tab down into Today to
+// unpin it, or anywhere to reorder. The page stays loaded either way (main moves the Tab).
+document.addEventListener('mousedown', (e) => {
+  if (e.button !== 0 || renaming) return;
+  const el = e.target.closest('.tab[data-id]'); if (!el || e.target.closest('.x') || el.classList.contains('leave')) return;
+  const id = Number(el.dataset.id), x0 = e.clientX, y0 = e.clientY;
+  const r = el.getBoundingClientRect();
+  const arm = (ev) => { if (Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 4) return; window.removeEventListener('mousemove', arm); window.removeEventListener('mouseup', disarm); begin(ev); };
+  const disarm = () => { window.removeEventListener('mousemove', arm); window.removeEventListener('mouseup', disarm); };
+  window.addEventListener('mousemove', arm); window.addEventListener('mouseup', disarm);
+  function begin(ev) {
+    const ghost = el.cloneNode(true); ghost.classList.add('ghost'); ghost.classList.remove('active');
+    ghost.style.width = r.width + 'px'; ghost.style.left = r.left + 'px'; ghost.style.top = r.top + 'px';
+    const gap = document.createElement('div'); gap.className = 'gap';
+    drag = { id, el, ghost, gap, dx: x0 - r.left, dy: y0 - r.top, target: null };
+    el.classList.add('dragging'); el.after(gap); document.body.append(ghost); document.body.classList.add('dragging');
+    move(ev);
+    window.addEventListener('mousemove', move); window.addEventListener('mouseup', drop, { once: true });
+  }
+  function move(ev) {
+    drag.ghost.style.left = (ev.clientX - drag.dx) + 'px'; drag.ghost.style.top = (ev.clientY - drag.dy) + 'px';
+    const y = ev.clientY;
+    // candidate slots in document order: every visible row's midline, then each container's end
+    const slots = [];
+    const containers = [...groupsEl.querySelectorAll('section.group')].map((sec) => ({ sec, list: sec, group: sec.dataset.name, head: sec.querySelector('h2') }));
+    containers.push({ sec: todaySection, list: todayEl, group: null, head: $('#newTab') });
+    for (const c of containers) {
+      const rows = c.sec.classList.contains('collapsed') ? [] : [...c.list.querySelectorAll(':scope > .tab[data-id]')].filter((x) => x !== drag.el && !x.classList.contains('leave'));
+      rows.forEach((row, i) => { const b = row.getBoundingClientRect(); slots.push({ y: b.top + b.height / 2, list: c.list, group: c.group, index: i, before: row }); });
+      const last = rows[rows.length - 1] || c.head; const b = last.getBoundingClientRect();
+      slots.push({ y: b.bottom + 4, list: c.list, group: c.group, index: rows.length, before: null, end: true });
+    }
+    let t = slots.find((sl) => y < sl.y) || slots[slots.length - 1];
+    if (drag.target && drag.target.list === t.list && drag.target.index === t.index) return;
+    drag.target = t;
+    if (t.before) t.list.insertBefore(drag.gap, t.before); else t.list.append(drag.gap);
+  }
+  function drop() {
+    window.removeEventListener('mousemove', move);
+    const { target, el: row, ghost, gap } = drag;
+    drag = null; ghost.remove(); gap.remove(); row.classList.remove('dragging'); document.body.classList.remove('dragging');
+    if (target) homie.send('move', id, target.group, target.index);
+    if (renderAfterDrag) { renderAfterDrag = false; render(); }
+  }
+});
+
 function startRename(id) {
   const el = document.querySelector(`.tab[data-id="${id}"]`); if (!el) return;
   const label = el.querySelector('.label');
   const input = document.createElement('input'); input.className = 'rename'; input.value = label.textContent;
   renaming = id; label.replaceWith(input); input.focus(); input.select();
-  const done = (commit) => { if (!renaming) return; renaming = null; if (commit) homie.send('rename', id, input.value); render(); };
+  const done = (commit) => { if (!renaming) return; renaming = null; if (commit && input.value.trim()) { homie.send('rename', id, input.value); label.textContent = input.value.trim(); input.replaceWith(label); } else render(); };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(true); else if (e.key === 'Escape') done(false); e.stopPropagation(); });
   input.addEventListener('blur', () => done(true));
   input.addEventListener('click', (e) => e.stopPropagation());

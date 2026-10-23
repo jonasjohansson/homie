@@ -61,12 +61,15 @@ button svg { display: block; }
 #sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: var(--w); display: flex; flex-direction: column; transition: opacity var(--t-sidebar) var(--ease-out); }
 body.sidebar-hidden #sidebar { opacity: 0; pointer-events: none; }
 #top { height: 48px; flex: none; display: flex; align-items: center; padding-left: 78px; }   /* icon centre at 91 pt, Arc: 90.75 */
-#toggle { width: 26px; height: 24px; color: var(--fg-dim); }
+#toggle { width: 26px; height: 24px; color: var(--fg-dim); border-radius: 6px; transition: background-color var(--t-hover) var(--ease-out); }
 
 #list { flex: 1 1 auto; overflow-y: auto; padding: 36px 0 8px; }
 #list::-webkit-scrollbar { width: 0; }
 h2 { height: var(--row); margin: 0 8px var(--pitch); padding: 0 0 0 10px; display: flex; align-items: center; gap: 10px; font-size: var(--fs); font-weight: 600; color: var(--fg); }
 h2 .folder { width: 18px; height: 16px; display: grid; place-items: center; color: #7b74f2; }
+h2 .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+h2 input.rename { width: 100%; height: 22px; font: inherit; font-weight: 600; color: var(--fg); background: var(--field); border: 0; border-radius: 4px; padding: 0 4px; outline: none; margin-right: 8px; }
+section.group.collapsed .tab { display: none; }
 h2 .folder svg { display: block; }
 h2 button { margin-left: auto; margin-right: 8px; font-size: 11px; font-weight: 500; color: var(--fg-dim); }
 /* Arc: a hairline between pinned and Today, "Clear" at its right while the pointer is over the Today tabs; "+ New Tab" is the first Today row. */
@@ -94,16 +97,25 @@ h2 button { margin-left: auto; margin-right: 8px; font-size: 11px; font-weight: 
 .tab .badge { min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; font-weight: 600; line-height: 16px; text-align: center; border-radius: 8px; background: var(--badge); color: var(--badge-fg); }
 .tab .badge:empty { display: none; }
 .tab .x { width: 20px; height: 20px; font-size: 14px; color: var(--fg-muted); border-radius: 4px; visibility: hidden; }
-.tab.today .x, .tab.away .x, .tab:hover .x { visibility: visible; }
+.tab.away .x, .tab:hover .x { visibility: visible; }   /* Arc: the × appears on hover; ↺ stays while away */
 .tab input.rename { width: 100%; height: 22px; font: inherit; color: var(--fg); background: var(--field); border: 0; border-radius: 4px; padding: 0 4px; outline: none; }
 #newTab { grid-template-columns: var(--icon) 1fr; color: var(--fg-dim); font-weight: 500; }
 #newTab .glyph { font-size: 16px; line-height: 1; }
 
 #bottom { flex: none; height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px 0 16px; color: var(--fg-dim); }
-#bottom button { height: 28px; min-width: 28px; display: flex; align-items: center; gap: 6px; padding: 0 4px; color: var(--fg-dim); }
+#bottom button { height: 28px; min-width: 28px; display: flex; align-items: center; gap: 6px; padding: 0 4px; color: var(--fg-dim); border-radius: 6px; transition: background-color var(--t-hover) var(--ease-out); }
 #dlrow .meta { font-size: 11px; }
 #dlrow .meta:empty { display: none; }
 #dlrow .meta.busy, #dlrow.active { color: var(--fg); }
+
+/* drag and drop: the lifted row follows the pointer; a gap of one row pitch opens where it would land */
+.tab.dragging { display: none; }
+.gap { height: var(--row); margin: 0 8px var(--pitch); border-radius: 8px; background: var(--hover); animation: row-enter var(--t-row) var(--ease-out); }
+.group .gap { margin-left: 24px; }
+.tab.ghost { position: fixed; z-index: 10; margin: 0; pointer-events: none; background: var(--active); opacity: .92; }
+body.dragging .tab:hover { background: none; }
+body.dragging .tab.active { background: var(--active); }
+body.dragging { cursor: default; }
 
 #handle { position: absolute; top: 0; right: -3px; width: 6px; height: 100%; cursor: col-resize; -webkit-app-region: no-drag; }
 
@@ -116,8 +128,8 @@ body.sidebar-hidden #toolbar { padding-left: 76px; }
 #nav button { width: 30px; height: 28px; color: var(--card-muted); border-radius: 6px; transition: background-color var(--t-hover) var(--ease-out); }
 #nav button:hover:not(:disabled), #address:hover, #toggle:hover, #bottom button:hover { background: var(--hover); }
 #nav button:disabled { opacity: .4; }
-#toggle2 { display: none; }
-body.sidebar-hidden #toggle2 { display: grid; }
+#nav #toggle2 { width: 0; min-width: 0; padding: 0; opacity: 0; overflow: hidden; margin-right: -7px; transition: opacity var(--t-sidebar) var(--ease-out); }   /* fades in with the slide, no snap */
+body.sidebar-hidden #nav #toggle2 { width: 30px; opacity: 1; margin-right: 0; }
 #address { justify-self: center; max-width: 100%; height: 28px; padding: 0 10px; display: flex; grid-template-columns: none; align-items: center; gap: 6px; color: var(--card-fg); border-radius: 6px; overflow: hidden; font-size: 13px; }
 #address svg { color: var(--card-muted); flex: none; }
 #address .host { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }

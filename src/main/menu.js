@@ -19,7 +19,9 @@ export function buildMenu(mgr, bookmarks) {
       { label: 'New Tab', accelerator: 'Cmd+T', click: () => mgr.showPalette('new') },
       { label: 'Open Address', accelerator: 'Cmd+L', click: () => mgr.showPalette('url') },
       { label: 'Reopen Closed Tab', accelerator: 'Cmd+Shift+T', click: () => mgr.reopenClosed() },
-      { label: 'Pin This Page', accelerator: 'Cmd+D', click: () => { const a = t(); if (!a) return; if (a.kind === 'today') mgr.showPalette('pin', a.id); else bookmarks.replaceUrl(a.pinnedUrl, a.url); } },
+      { label: 'Pin or Unpin Tab', accelerator: 'Cmd+D', click: () => { const a = t(); if (!a) return; if (a.kind === 'today') mgr.showPalette('pin', a.id); else if (a.kind === 'pinned') mgr.unpin(a.id); } },   // Arc: Cmd+D toggles
+      { label: 'Pin This Page Instead', accelerator: 'Cmd+Shift+D', click: () => { const a = t(); if (a?.kind === 'pinned') mgr.repin(a, a.url); } },
+      { label: 'New Folder…', click: () => mgr.showPalette('folder', null) },
       { type: 'separator' },
       { label: 'Close Tab', accelerator: 'Cmd+W', click: () => { if (t()) mgr.close(t().id); } },
       { label: 'Clear Today', accelerator: 'Cmd+Shift+W', click: () => mgr.clearToday() },

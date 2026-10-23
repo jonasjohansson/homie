@@ -72,7 +72,7 @@ export class Tab {
   get away() { return this.kind === 'pinned' && this.loaded && !sameSite(this.url, this.pinnedUrl); }
 
   dto() {
-    return { id: this.id, kind: this.kind, url: this.url, label: this.label, title: this.title, favicon: this.favicon,
+    return { id: this.id, kind: this.kind, url: this.url, pinnedUrl: this.pinnedUrl, label: this.label, title: this.title, favicon: this.favicon,
       unread: this.unread, muted: this.muted, loading: this.loading, loaded: this.loaded, away: this.away };
   }
 
@@ -294,11 +294,12 @@ export class TabManager {
   syncBookmarks(initial = false) {
     const old = new Map();
     for (const g of this.groups) for (const t of g.tabs) old.set(t.pinnedUrl, t);
-    const groups = [];
+    const groups = [], seen = new Set();
     let delay = 0;
     for (const g of this.bookmarks.groups) {
       const tabs = [];
       for (const spec of g.tabs) {
+        if (seen.has(spec.url)) continue; seen.add(spec.url);   // a duplicate row would leak a hidden view
         let t = old.get(spec.url);
         if (t) {
           old.delete(spec.url);
@@ -349,7 +350,8 @@ export class TabManager {
       { label: 'Move to Trash', click: () => act('trash') },
     ];
     const sbw = this.sidebarHidden ? 0 : state.sidebarWidth;
-    Menu.buildFromTemplate(items).popup({ window: this.win, x: Math.round(x) + sbw, y: Math.round(y) });
+    const b = this.downloadsTab?.view?.getBounds() || { x: sbw, y: 0 };
+    Menu.buildFromTemplate(items).popup({ window: this.win, x: Math.round(x) + b.x, y: Math.round(y) + b.y });
   }
 
   restoreToday() {
@@ -386,7 +388,7 @@ export class TabManager {
   open(url, { background = false, after = null, title = '' } = {}) {
     const t = new Tab(this, { kind: 'today', url, title: title || url });
     this.tabs.set(t.id, t);
-    const i = after && after.kind === 'today' ? this.today.indexOf(after) + 1 : this.today.length;
+    const i = after && after.kind === 'today' ? this.today.indexOf(after) + 1 : 0;   // Arc: a new tab lands at the top of Today
     this.today.splice(i, 0, t);
     t.load();
     this.saveToday();
@@ -443,7 +445,7 @@ export class TabManager {
   }
 
   reopenClosed() { const url = this.closed.pop(); if (url) this.open(url); }
-  clearToday() { for (const t of [...this.today]) this.dropTab(t); if (!this.active) { const f = this.allPinned()[0]; if (f) this.activate(f.id); } this.saveToday(); this.push(); }
+  clearToday() { for (const t of [...this.today]) { this.closed.push(t.url); this.dropTab(t); } if (!this.active) { const f = this.allPinned()[0]; if (f) this.activate(f.id); } this.saveToday(); this.push(); }
 
   byIndex(n) { const t = this.allPinned()[n]; if (t) this.activate(t.id); }
   step(dir) {
@@ -452,18 +454,52 @@ export class TabManager {
     this.activate(list[(i + dir + list.length) % list.length].id);
   }
 
-  pin(id, groupName) {
-    const t = this.tabs.get(id); if (!t || t.kind !== 'today') return;
-    const label = (t.title || '').replace(/^\(\d+\)\s*/, '').slice(0, 40);
-    this.bookmarks.add(groupName, t.url, label);
-    this.dropTab(t); this.saveToday();
-    // syncBookmarks (from the watcher) creates the pinned tab; activate it when it lands
-    setTimeout(() => { const p = this.allPinned().find((x) => x.pinnedUrl === t.url); if (p) this.activate(p.id); }, 400);
+  // Arc keeps the page alive when a tab changes side: pinning, unpinning and reordering
+  // move the same Tab object, then write the bookmarks file, whose change syncs the groups.
+  moveTab(id, groupName, index) {
+    const t = this.tabs.get(id); if (!t || t.kind === 'internal') return;
+    const from = this.groups.find((g) => g.tabs.includes(t));
+    const label = t.kind === 'pinned' ? t.label : (t.title || '').replace(/^\(\d+\)\s*/, '').slice(0, 40);
+    if (groupName == null) {                                    // → Today
+      if (t.kind === 'today') { const i = this.today.indexOf(t); if (i >= 0) this.today.splice(i, 1); }
+      else { if (from) from.tabs.splice(from.tabs.indexOf(t), 1); const url = t.pinnedUrl; t.kind = 'today'; t.pinnedUrl = null; t.label = ''; t.unread = 0; this.bookmarks.remove(url); }
+      this.today.splice(Math.max(0, Math.min(index ?? this.today.length, this.today.length)), 0, t);
+      this.saveToday(); this.push();
+      return;
+    }
+    if (t.kind === 'today') { const i = this.today.indexOf(t); if (i >= 0) this.today.splice(i, 1); t.kind = 'pinned'; t.pinnedUrl = t.url; t.label = label; this.saveToday(); }
+    else if (from) from.tabs.splice(from.tabs.indexOf(t), 1);
+    let g = this.groups.find((x) => x.name === groupName);
+    if (!g) { g = { name: groupName, tabs: [] }; this.groups.push(g); }
+    g.tabs.splice(Math.max(0, Math.min(index ?? g.tabs.length, g.tabs.length)), 0, t);
+    this.bookmarks.place(t.pinnedUrl, label, groupName, index);   // syncBookmarks keeps t: it is in this.groups now
+    this.push();
   }
+  pin(id, groupName) { this.moveTab(id, groupName, undefined); }
+  repin(t, url) { if (t.kind !== 'pinned' || !url || url === t.pinnedUrl) return; const old = t.pinnedUrl; t.pinnedUrl = url; this.bookmarks.replaceUrl(old, url); }
+  unpin(id) { this.moveTab(id, null, 0); }
 
-  unpin(id) {
-    const t = this.tabs.get(id); if (!t || t.kind !== 'pinned') return;
-    this.bookmarks.remove(t.pinnedUrl);
+  // --- folders ---------------------------------------------------------------------
+  collapsed(name) { return !!(state.collapsed || {})[name]; }
+  toggleCollapsed(name) { state.collapsed = { ...(state.collapsed || {}) }; if (state.collapsed[name]) delete state.collapsed[name]; else state.collapsed[name] = true; saveState(); this.push(); }
+  deleteGroup(name) {
+    const g = this.groups.find((x) => x.name === name); if (!g) return;
+    for (const t of [...g.tabs]) this.moveTab(t.id, null, this.today.length);   // Arc keeps the tabs: they land in Today
+    this.bookmarks.removeGroup(name);
+  }
+  groupContextMenu(name, x, y) {
+    const i = this.groups.findIndex((g) => g.name === name); if (i < 0) return;
+    const items = [
+      { label: 'Rename Folder', click: () => this.sendUI('start-rename-group', name) },
+      { label: 'New Folder…', click: () => this.showPalette('folder', i + 1) },
+      { type: 'separator' },
+      { label: this.collapsed(name) ? 'Expand' : 'Collapse', click: () => this.toggleCollapsed(name) },
+      { label: 'Move Up', enabled: i > 0, click: () => this.bookmarks.moveGroup(name, i - 1) },
+      { label: 'Move Down', enabled: i < this.groups.length - 1, click: () => this.bookmarks.moveGroup(name, i + 1) },
+      { type: 'separator' },
+      { label: 'Delete Folder', click: () => this.deleteGroup(name) },
+    ];
+    Menu.buildFromTemplate(items).popup({ window: this.win, x: Math.round(x), y: Math.round(y) });
   }
 
   toggleSidebar() { this.sidebarHidden = !this.sidebarHidden; this.push(true); this.animateLayout(); }
@@ -513,12 +549,14 @@ export class TabManager {
     if (t.kind === 'pinned') {
       items.push({ label: 'Show badge', type: 'checkbox', checked: t.showsBadge, click: () => this.bookmarks.setField(t.pinnedUrl, 'badge', !t.showsBadge, true) });
       items.push({ label: 'Rename…', click: () => this.sendUI('start-rename', id) });
+      items.push({ label: 'Edit URL…', click: () => this.showPalette('edit-url', id) });
+      items.push({ label: 'Move to', submenu: this.groups.map((g) => ({ label: g.name, type: 'checkbox', checked: g.tabs.includes(t), click: () => this.moveTab(id, g.name, undefined) })) });
     }
     items.push({ type: 'separator' });
     items.push({ label: 'Reload', enabled: t.loaded, click: () => t.wc?.reload() });
     if (t.kind === 'pinned') {
       items.push({ label: 'Reset to pinned page', enabled: t.loaded, click: () => t.load(t.pinnedUrl) });
-      if (t.away) items.push({ label: 'Pin this page instead', click: () => this.bookmarks.replaceUrl(t.pinnedUrl, t.url) });
+      if (t.away) items.push({ label: 'Pin this page instead', click: () => this.repin(t, t.url) });
     }
     items.push({ label: 'Copy address', click: () => clipboard.writeText(t.url) });
     items.push({ label: 'Open in Chrome', click: () => openInChrome(t.url) });
@@ -576,7 +614,8 @@ export class TabManager {
     try { for (const mi of this.extensions?.getContextMenuItems(wc, p) || []) items.push(mi); if (items.at(-1)?.type !== 'separator' && this.extensions) items.push({ type: 'separator' }); } catch {}
     items.push({ label: 'Inspect Element', click: () => wc.inspectElement(p.x, p.y) });
     const sbw = this.sidebarHidden ? 0 : state.sidebarWidth;
-    Menu.buildFromTemplate(items).popup({ window: this.win, x: p.x + sbw, y: p.y });
+    const b = tab.view?.getBounds() || { x: sbw, y: 0 };
+    Menu.buildFromTemplate(items).popup({ window: this.win, x: p.x + b.x, y: p.y + b.y });
   }
 
   // --- sidebar protocol ---------------------------------------------------------------
@@ -594,7 +633,7 @@ export class TabManager {
     const a = this.active;
     const h = a?.wc && !a.wc.isDestroyed() ? a.wc.navigationHistory : null;
     return {
-      groups: this.groups.map((g) => ({ name: g.name, tabs: g.tabs.map((t) => t.dto()) })),
+      groups: this.groups.map((g) => ({ name: g.name, collapsed: this.collapsed(g.name), tabs: g.tabs.map((t) => t.dto()) })),
       today: this.today.map((t) => t.dto()),
       activeId: a?.id ?? null,
       url: a?.url || '',
@@ -631,6 +670,12 @@ export class TabManager {
       if (t.kind === 'pinned') this.bookmarks.setField(t.pinnedUrl, 'label', String(label || '').trim(), '');
     });
     ipcMain.on('pin-new-group', (e, id, name) => fromUI(e) && name && this.pin(id, String(name).trim()));
+    ipcMain.on('move', (e, id, group, index) => fromUI(e) && this.moveTab(Number(id), group == null ? null : String(group), Number(index)));
+    ipcMain.on('group-context', (e, name, x, y) => fromUI(e) && this.groupContextMenu(String(name), x, y));
+    ipcMain.on('collapse', (e, name) => fromUI(e) && this.toggleCollapsed(String(name)));
+    ipcMain.on('rename-group', (e, oldName, newName) => fromUI(e) && this.bookmarks.renameGroup(String(oldName), String(newName || '').trim()));
+    ipcMain.on('new-group', (e, name, index) => fromUI(e) && name && this.bookmarks.addGroup(String(name).trim(), index == null ? undefined : Number(index)));
+    ipcMain.on('set-url', (e, id, url) => { if (!fromUI(e)) return; const t = this.tabs.get(id); const r = resolveInput(String(url || '')); if (t?.kind === 'pinned' && r && !r.includes('google.com/search?q=')) this.repin(t, r); });
     ipcMain.on('sidebar-drag', (e, phase, width) => {
       if (!fromUI(e)) return;
       if (phase === 'start') { this.sidebarDragging = true; this.layout(); }
