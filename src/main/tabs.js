@@ -108,7 +108,7 @@ export class Tab {
   get away() { return this.kind === 'pinned' && this.loaded && !sameSite(this.url, this.pinnedUrl); }
 
   dto() {
-    return { id: this.id, kind: this.kind, url: this.url, pinnedUrl: this.pinnedUrl, label: this.label, title: this.title, favicon: this.favicon,
+    return { id: this.id, kind: this.kind, url: this.url, pinnedUrl: this.pinnedUrl, label: this.label, title: this.customTitle || this.title, favicon: this.favicon,
       unread: this.unread, muted: this.muted, loading: this.loading, loaded: this.loaded, away: this.away };
   }
 
@@ -266,6 +266,17 @@ export class TabManager {
     this.split.panes.push(t); this.split.factors = [];
     this.activate(t.id);
   }
+  // put tab `id` into the split beside `target`, on its left or right
+  splitOnto(id, target, side) {
+    let t = this.tabs.get(id); if (!t || t.kind === 'internal' || target.kind === 'internal') return;
+    if (t === target) return;
+    if (!this.split || !this.split.panes.includes(target)) { this.split = { panes: [target], factors: [], focus: 0 }; }
+    const sp = this.split;
+    if (sp.panes.includes(t)) sp.panes.splice(sp.panes.indexOf(t), 1);
+    else if (sp.panes.length >= MAX_PANES) return;
+    sp.panes.splice(sp.panes.indexOf(target) + (side === 'left' ? 0 : 1), 0, t); sp.factors = [];
+    this.activate(t.id);
+  }
   removePane(t, { closeTab = false } = {}) {
     const sp = this.split; if (!sp || !sp.panes.includes(t)) return false;
     sp.panes.splice(sp.panes.indexOf(t), 1); sp.factors = [];
@@ -360,7 +371,7 @@ export class TabManager {
 
     wc.on('page-title-updated', (_e, title) => { tab.titleChanged(title); if (tab.kind === 'today') this.saveToday(); this.push(); this.updateWindowTitle(); });
     wc.on('focus', () => { if (this.active !== tab && this.split?.panes.includes(tab) && this.visiblePanes().includes(tab)) this.activate(tab.id); });   // a click in a pane focuses it
-    wc.on('page-favicon-updated', (_e, icons) => { if (icons?.length) { tab.favicon = icons[0]; if (tab.kind === 'today') this.saveToday(); this.push(); } });
+    wc.on('page-favicon-updated', (_e, icons) => { if (icons?.length) { tab.favicon = icons[0]; if (tab.kind === 'today') this.saveToday(); else if (tab.kind === 'pinned' && !tab.away) { state.favicons = { ...(state.favicons || {}), [tab.pinnedUrl]: icons[0] }; saveState(); } this.push(); } });
     wc.on('did-change-theme-color', (_e, color) => { tab.themeColor = color || ''; this.push(); });
     // no theme-color: paint the toolbar strip in the page's own background, as Arc does
     const sampleBg = () => wc.executeJavaScript(`(() => { const c = getComputedStyle(document.body).backgroundColor; const h = getComputedStyle(document.documentElement).backgroundColor; return [c, h]; })()`, true)
@@ -421,7 +432,7 @@ export class TabManager {
           if (!t.title) t.title = spec.label;
           t.titleChanged(t.title);
         } else {
-          t = new Tab(this, { kind: 'pinned', url: spec.url, label: spec.label, muted: spec.muted, badge: spec.badge });
+          t = new Tab(this, { kind: 'pinned', url: spec.url, label: spec.label, muted: spec.muted, badge: spec.badge, favicon: (state.favicons || {})[spec.url] || '' });
           this.tabs.set(t.id, t);
           setTimeout(() => { if (this.tabs.has(t.id)) t.load(); }, initial ? delay : 0);
           delay += STAGGER_MS;
@@ -471,12 +482,13 @@ export class TabManager {
     for (const row of state.today || []) {
       if (!row?.url) continue;
       const t = new Tab(this, { kind: 'today', url: row.url, title: row.title || row.url, favicon: row.favicon });
+      if (row.customTitle) t.customTitle = row.customTitle;
       this.tabs.set(t.id, t); this.today.push(t);
     }
   }
 
   saveToday() {
-    state.today = this.today.map((t) => ({ url: t.url, title: t.title, favicon: t.favicon }));
+    state.today = this.today.map((t) => ({ url: t.url, title: t.title, favicon: t.favicon, customTitle: t.customTitle || undefined }));
     saveState();
   }
 
@@ -667,6 +679,7 @@ export class TabManager {
         this.groups.length ? [{ type: 'separator' }] : [], [{ label: 'New group…', click: () => this.showPalette('pin', id) }]) });
     }
     // wording follows Arc's tab menu: Rename, Edit Pinned Page, Copy Link, Duplicate, Mute, Move To, Unpin / Close and Keep Pinned
+    if (t.kind === 'today') items.push({ label: 'Rename', click: () => this.sendUI('start-rename', id) });
     if (t.kind === 'pinned') {
       items.push({ label: 'Rename', click: () => this.sendUI('start-rename', id) });
       items.push({ label: 'Edit Pinned Page', submenu: [
@@ -784,7 +797,7 @@ export class TabManager {
       if (this.active !== t) this.activate(id);
       const wc = t.wc; if (!wc) return;
       if (what === 'back') wc.navigationHistory.goBack(); else if (what === 'forward') wc.navigationHistory.goForward(); else if (what === 'reload') wc.reload();
-      else if (what === 'address') this.showPalette('url'); else if (what === 'close') this.closePane(); else if (what === 'separate') this.removePane(t);
+      else if (what === 'address') this.showPalette('url'); else if (what === 'close') this.closePane(); else if (what === 'separate') this.removePane(t); else if (what === 'add-split') this.showPalette('split');
     });
     ipcMain.on('split-drag', (e, phase, i, x) => {
       if (!fromUI(e)) return;
@@ -810,6 +823,7 @@ export class TabManager {
     ipcMain.on('rename', (e, id, label) => {
       if (!fromUI(e)) return; const t = this.tabs.get(id); if (!t) return;
       if (t.kind === 'pinned') this.bookmarks.setField(t.pinnedUrl, 'label', String(label || '').trim(), '');
+      else if (t.kind === 'today') { t.customTitle = String(label || '').trim(); this.saveToday(); this.push(); }
     });
     ipcMain.on('pin-new-group', (e, id, name) => fromUI(e) && name && this.pin(id, String(name).trim()));
     ipcMain.on('move', (e, id, group, index) => fromUI(e) && this.moveTab(Number(id), group == null ? null : String(group), Number(index)));
@@ -841,6 +855,19 @@ export class TabManager {
     ipcMain.on('palette-size', (e, h) => { if (fromUI(e)) { this.paletteHeight = Math.max(48, Math.min(600, Math.round(h))); this.layout(); } });
     ipcMain.on('focus-page', (e) => fromUI(e) && this.active?.wc?.focus());
     ipcMain.on('homie:notification', (e, payload) => this.notify(e.sender, payload || {}));
+    // Arc's canonical split gesture: a sidebar row dropped on the left or right half of a page
+    ipcMain.on('row-drag', (e, phase, id) => {
+      if (!fromUI(e)) return;
+      if (phase === 'start') { this.rowDrag = Number(id); for (const t of this.visiblePanes()) t.wc?.send('homie:drag', 'start'); }
+      else { this.rowDrag = null; for (const t of this.tabs.values()) if (t.loaded) t.wc.send('homie:drag', 'end'); }
+    });
+    ipcMain.on('homie:drop', (e, side) => {
+      const id = this.rowDrag; const target = [...this.tabs.values()].find((t) => t.wc === e.sender);
+      this.rowDrag = null; for (const t of this.tabs.values()) if (t.loaded) t.wc.send('homie:drag', 'end');
+      this.sendUI('row-drag-end');
+      if (id == null || !target) return;
+      this.splitOnto(id, target, side === 'left' ? 'left' : 'right');
+    });
   }
 }
 

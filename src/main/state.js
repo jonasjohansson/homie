@@ -13,6 +13,7 @@ const defaults = {
   activeUrl: null,
   split: null,        // { urls, factors, focus }
   collapsed: {},      // folded folders by name
+  favicons: {},       // pinned url -> favicon url, so unloaded pins show their icon at launch
 };
 
 export const state = { ...defaults };

@@ -106,8 +106,8 @@ h2 button { margin-left: auto; margin-right: 8px; font-size: 11px; font-weight: 
 #newTab { grid-template-columns: var(--icon) 1fr; gap: 11px; color: #7b7982; font-weight: 500; }   /* Arc: #7b7982 */
 #newTab .glyph { font-size: 16px; line-height: 1; }
 
-#bottom { flex: none; height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px 0 16px; color: var(--fg-dim); }
-#bottom button { height: 28px; min-width: 28px; display: flex; align-items: center; gap: 6px; padding: 0 4px; color: var(--fg-dim); border-radius: 6px; transition: background-color var(--t-hover) var(--ease-out); }
+#bottom { flex: none; height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px 0 10px; color: #575360; }   /* Arc: 14 pt glyphs at x 17 and 171 of 202, centred 26 pt above the bottom, #575360 */
+#bottom button { height: 28px; min-width: 28px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 7px; color: inherit; border-radius: 6px; transition: background-color var(--t-hover) var(--ease-out); }
 #dlrow .meta { font-size: 11px; }
 #dlrow .meta:empty { display: none; }
 #dlrow .meta.busy, #dlrow.active { color: var(--fg); }
@@ -146,6 +146,7 @@ body.sidebar-hidden .card:first-child .nav .toggle2 { width: 30px; opacity: 1; m
 browser-action-list { height: 28px; }
 browser-action-list::part(action) { width: 28px; height: 28px; border-radius: 6px; background: none; }
 browser-action-list::part(action):hover { background: none; }
-.paneClose { width: 28px; height: 28px; color: var(--card-muted); border-radius: 6px; }
+.paneClose, .addSplit { width: 28px; height: 28px; color: var(--card-muted); border-radius: 6px; transition: background-color var(--t-hover) var(--ease-out); }
+.addSplit:hover { background: var(--hover); }
 .card.single .paneClose { display: none; }
 #gutters .gutter { position: absolute; cursor: col-resize; -webkit-app-region: no-drag; }

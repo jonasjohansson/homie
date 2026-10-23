@@ -1,7 +1,7 @@
 const $ = (s) => document.querySelector(s);
 const groupsEl = $('#groups'), todayEl = $('#today'), todaySection = $('#todaySection'), dlRow = $('#dlrow'), cardsEl = $('#cards'), guttersEl = $('#gutters'), toolbarT = $('#toolbarT');
 let S = { groups: [], today: [], activeId: null, url: '', downloads: null };
-let renaming = null, drag = null, renderAfterDrag = false, lastActive = null;
+let renaming = null, drag = null, renderAfterDrag = false, lastActive = null, endDrag = null, drag_overPage = false;
 
 const FOLDER = '<svg width="18" height="16" viewBox="0 0 18 16"><path d="M1 3.2A1.7 1.7 0 0 1 2.7 1.5h3.9l1.9 1.9h6.8A1.7 1.7 0 0 1 17 5.1v7.7a1.7 1.7 0 0 1-1.7 1.7H2.7A1.7 1.7 0 0 1 1 12.8z" fill="currentColor"/><path d="M1 6.2h16v6.6a1.7 1.7 0 0 1-1.7 1.7H2.7A1.7 1.7 0 0 1 1 12.8z" fill="#fff" opacity=".18"/></svg>';
 // the open folder, for an expanded group: the front flap tilts out
@@ -19,6 +19,7 @@ homie.on('state', (s) => {
 homie.on('sidebar-width', (w) => document.documentElement.style.setProperty('--w', w + 'px'));
 homie.on('start-rename', (id) => startRename(id));
 homie.on('start-rename-group', (name) => startRenameGroup(name));
+homie.on('row-drag-end', () => { if (endDrag) endDrag(); });   // the page took the drop
 
 function render() {
   if (renaming) return;
@@ -85,7 +86,13 @@ function update(el, t) {
   if (el.dataset.sig === sig) return;
   const fresh = row(t);
   el.className = fresh.className; el.dataset.sig = sig;
-  el.replaceChildren(...fresh.childNodes);
+  const parts = ['.ico', '.label', '.badge', '.x'];
+  for (const sel of parts) {
+    const a = el.querySelector(sel), b = fresh.querySelector(sel);
+    if (a && b && a.outerHTML !== b.outerHTML) a.replaceWith(b);   // the favicon <img> survives a title tick
+  }
+  el.onclick = fresh.onclick; el.ondblclick = fresh.ondblclick;
+  const ia = el.querySelector('.ico'), ib = fresh.querySelector('.ico'); if (ia && ib) { ia.onclick = ib.onclick; ia.title = ib.title; }
 }
 
 function row(t) {
@@ -105,7 +112,7 @@ function row(t) {
   el.onclick = (e) => homie.send('activate', Number(el.dataset.id), !!e.altKey);   // Arc: Option-click opens the tab in a split
   el.onauxclick = (e) => { if (e.button === 1) homie.send('close', Number(el.dataset.id)); };
   el.oncontextmenu = (e) => { e.preventDefault(); homie.send('context', Number(el.dataset.id), e.clientX, e.clientY); };
-  if (t.kind === 'pinned') el.ondblclick = () => startRename(Number(el.dataset.id));
+  if (t.kind !== 'internal') el.ondblclick = () => startRename(Number(el.dataset.id));   // Arc: any tab renames
   return el;
 }
 
@@ -145,11 +152,15 @@ document.addEventListener('mousedown', (e) => {
     const gap = document.createElement('div'); gap.className = 'gap';
     drag = { id, el, ghost, gap, dx: x0 - r.left, dy: y0 - r.top, target: null };
     el.classList.add('dragging'); el.after(gap); document.body.append(ghost); document.body.classList.add('dragging');
+    homie.send('row-drag', 'start', id);
     move(ev);
     window.addEventListener('mousemove', move); window.addEventListener('mouseup', drop, { once: true });
+    endDrag = () => { window.removeEventListener('mouseup', drop); drop(true); };
   }
   function move(ev) {
     drag.ghost.style.left = (ev.clientX - drag.dx) + 'px'; drag.ghost.style.top = (ev.clientY - drag.dy) + 'px';
+    drag_overPage = ev.clientX > parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--w'));
+    if (drag_overPage) { drag.gap.remove(); drag.target = null; return; }
     const y = ev.clientY;
     // candidate slots in document order: every visible row's midline, then each container's end
     const slots = [];
@@ -166,11 +177,12 @@ document.addEventListener('mousedown', (e) => {
     drag.target = t;
     if (t.before) t.list.insertBefore(drag.gap, t.before); else t.list.append(drag.gap);
   }
-  function drop() {
-    window.removeEventListener('mousemove', move);
+  function drop(fromPage) {
+    window.removeEventListener('mousemove', move); endDrag = null;
+    if (!drag) return;
     const { target, el: row, ghost, gap } = drag;
     drag = null; ghost.remove(); gap.remove(); row.classList.remove('dragging'); document.body.classList.remove('dragging');
-    if (target) homie.send('move', id, target.group, target.index);
+    if (fromPage !== true) { homie.send('row-drag', 'end'); if (target && !drag_overPage) homie.send('move', id, target.group, target.index); }
     if (renderAfterDrag) { renderAfterDrag = false; render(); }
   }
 });
@@ -240,5 +252,6 @@ function wireToolbar(c, id) {
   c.querySelector('.reload').addEventListener('click', () => homie.send('pane', id, 'reload'));
   c.querySelector('.address').addEventListener('click', () => homie.send('pane', id, 'address'));
   c.querySelector('.paneClose').addEventListener('click', () => homie.send('pane', id, 'close'));
+  c.querySelector('.addSplit').addEventListener('click', () => homie.send('pane', id, 'add-split'));
   c.addEventListener('mousedown', () => { if (S.panes?.length > 1 && !S.panes.find((p) => p.id === id)?.focused) homie.send('activate', id); });   // a click on a pane's toolbar focuses it
 }
