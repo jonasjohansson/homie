@@ -16,6 +16,7 @@ const SIDEBAR_MIN = 180, SIDEBAR_MAX = 480;
 // Arc's geometry, measured 2026-10-23: card margins 10, toolbar 32 inside the card, radius 12
 const TOOLBAR = 32, MARGIN = 10, RADIUS = 12;
 const PALETTE_W = 640;
+const SIDEBAR_MS = 90;   // Arc: the card edge settles in 60 to 90 ms with an ease-out
 const STAGGER_MS = 600;
 
 // Installed in the page's main world after dom-ready (executeJavaScript is not
@@ -188,7 +189,24 @@ export class TabManager {
       t.view.setVisible(on && !this.sidebarDragging);
     }
     const pw = Math.min(PALETTE_W, card.width - 40);
-    this.palette.setBounds({ x: card.x + Math.round((card.width - pw) / 2), y: card.y + 60, width: pw, height: this.paletteHeight });
+    this.palette.setBounds({ x: card.x + Math.round((card.width - pw) / 2), y: card.y + Math.round(card.height * 0.33) - 24, width: pw, height: this.paletteHeight });
+    return card;
+  }
+
+  // Move the active page view to its new card over SIDEBAR_MS, in step with the chrome's CSS
+  // transition; the chrome paints the tint under the page, so nothing shows through.
+  animateLayout() {
+    const view = this.active?.view; if (!view || !this.active.loaded) return this.layout();
+    const from = view.getBounds();
+    const to = this.layout();
+    clearInterval(this.animTimer);
+    const t0 = Date.now();
+    const ease = (p) => 1 - Math.pow(1 - p, 3);
+    this.animTimer = setInterval(() => {
+      const p = Math.min(1, (Date.now() - t0) / SIDEBAR_MS), e = ease(p);
+      view.setBounds({ x: Math.round(from.x + (to.x - from.x) * e), y: to.y, width: Math.round(from.width + (to.width - from.width) * e), height: to.height });
+      if (p >= 1) { clearInterval(this.animTimer); this.layout(); }
+    }, 8);
   }
 
   raisePalette() { this.win.contentView.removeChildView(this.palette); this.win.contentView.addChildView(this.palette); }
@@ -446,7 +464,7 @@ export class TabManager {
     this.bookmarks.remove(t.pinnedUrl);
   }
 
-  toggleSidebar() { this.sidebarHidden = !this.sidebarHidden; this.layout(); this.push(); }
+  toggleSidebar() { this.sidebarHidden = !this.sidebarHidden; this.push(true); this.animateLayout(); }
   setSidebarWidth(w) { state.sidebarWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w))); saveState(); this.layout(); }
 
   badgesChanged() {

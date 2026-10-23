@@ -17,6 +17,7 @@
   --fg-muted: rgba(29, 29, 31, .5);
   --fg-dim: #7d7b85;
   --active: rgba(0, 0, 0, .07);
+  --hover: rgba(0, 0, 0, .04);
   --field: rgba(0, 0, 0, .06);
   --line: rgba(0, 0, 0, .1);
   --badge: #e5484d;
@@ -34,6 +35,7 @@
     --fg-muted: rgba(222, 223, 253, .55);
     --fg-dim: #7d7b85;
     --active: rgba(255, 255, 255, .09);
+    --hover: rgba(255, 255, 255, .055);
     --field: rgba(255, 255, 255, .09);
     --line: rgba(255, 255, 255, .12);
     --card-fg: #f1f1f1;
@@ -50,8 +52,11 @@ button:focus { outline: none; }
 button svg { display: block; }
 
 /* --- sidebar ------------------------------------------------------------------- */
-#sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: var(--w); display: flex; flex-direction: column; }
-body.sidebar-hidden #sidebar { display: none; }
+/* Motion, measured from Arc on 2026-10-23: the sidebar slides in 60 to 90 ms with an ease-out,
+   the command bar and tab switches are instant, rows fade in or collapse in about 50 ms. */
+:root { --ease-out: cubic-bezier(.2, 0, 0, 1); --t-sidebar: 90ms; --t-row: 50ms; --t-hover: 80ms; }
+#sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: var(--w); display: flex; flex-direction: column; transition: opacity var(--t-sidebar) var(--ease-out); }
+body.sidebar-hidden #sidebar { opacity: 0; pointer-events: none; }
 #top { height: 48px; flex: none; display: flex; align-items: center; padding-left: 80px; }
 #toggle { width: 26px; height: 24px; color: var(--fg-dim); }
 
@@ -66,7 +71,12 @@ h2.today { color: var(--fg-dim); font-size: 11px; font-weight: 600; letter-spaci
 
 .tab { height: var(--row); margin: 0 8px var(--pitch); padding: 0 6px 0 10px; display: grid; grid-template-columns: var(--icon) auto 1fr auto auto; gap: 7px; align-items: center; border-radius: 8px; white-space: nowrap; color: var(--fg-tab); font-weight: 500; }
 .group .tab { padding-left: 28px; }
+.tab { transition: background-color var(--t-hover) var(--ease-out), height var(--t-row) var(--ease-out), margin var(--t-row) var(--ease-out), opacity var(--t-row) var(--ease-out); }
+.tab:hover { background: var(--hover); }
 .tab.active { background: var(--active); color: var(--fg); }
+.tab.enter { animation: row-enter var(--t-row) var(--ease-out); }
+@keyframes row-enter { from { opacity: .25; } }
+.tab.leave { overflow: hidden; pointer-events: none; }
 .tab .ico { width: var(--icon); height: var(--icon); display: grid; place-items: center; }
 .tab .ico img { width: var(--icon); height: var(--icon); object-fit: contain; }
 .tab .ico .letter { width: var(--icon); height: var(--icon); font-size: 10px; font-weight: 600; line-height: var(--icon); text-align: center; border-radius: 4px; background: var(--field); color: var(--fg-muted); }
@@ -78,7 +88,7 @@ h2.today { color: var(--fg-dim); font-size: 11px; font-weight: 600; letter-spaci
 .tab .badge { min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; font-weight: 600; line-height: 16px; text-align: center; border-radius: 8px; background: var(--badge); color: var(--badge-fg); }
 .tab .badge:empty { display: none; }
 .tab .x { width: 20px; height: 20px; font-size: 14px; color: var(--fg-muted); border-radius: 4px; visibility: hidden; }
-.tab.today .x, .tab.away .x { visibility: visible; }
+.tab.today .x, .tab.away .x, .tab:hover .x { visibility: visible; }
 .tab input.rename { width: 100%; height: 22px; font: inherit; color: var(--fg); background: var(--field); border: 0; border-radius: 4px; padding: 0 4px; outline: none; }
 #newTab { grid-template-columns: var(--icon) 1fr; color: var(--fg-dim); margin-top: 2px; font-weight: 500; }
 #newTab .glyph { font-size: 16px; line-height: 1; }
@@ -92,12 +102,13 @@ h2.today { color: var(--fg-dim); font-size: 11px; font-weight: 600; letter-spaci
 #handle { position: absolute; top: 0; right: -3px; width: 6px; height: 100%; cursor: col-resize; -webkit-app-region: no-drag; }
 
 /* --- the card: toolbar on top, the page view sits over the rest -------------------- */
-#card { position: absolute; left: var(--w); top: var(--m); right: var(--m); bottom: var(--m); border-radius: var(--radius); background: var(--card); color: var(--card-fg); }
+#card { position: absolute; left: var(--w); top: var(--m); right: var(--m); bottom: var(--m); border-radius: var(--radius); background: var(--card); color: var(--card-fg); transition: left var(--t-sidebar) var(--ease-out); }
 body.sidebar-hidden #card { left: var(--m); }
-#toolbar { height: var(--tb); display: grid; grid-template-columns: 1fr minmax(0, 2fr) 1fr; align-items: center; padding: 0 8px 0 10px; }
+#toolbar { height: var(--tb); display: grid; grid-template-columns: 1fr minmax(0, 2fr) 1fr; align-items: center; padding: 0 8px 0 10px; transition: padding-left var(--t-sidebar) var(--ease-out); }
 body.sidebar-hidden #toolbar { padding-left: 76px; }
 #nav { display: flex; gap: 2px; }
-#nav button { width: 30px; height: 28px; color: var(--card-muted); border-radius: 6px; }
+#nav button { width: 30px; height: 28px; color: var(--card-muted); border-radius: 6px; transition: background-color var(--t-hover) var(--ease-out); }
+#nav button:hover:not(:disabled), #address:hover, #toggle:hover, #bottom button:hover { background: var(--hover); }
 #nav button:disabled { opacity: .4; }
 #toggle2 { display: none; }
 body.sidebar-hidden #toggle2 { display: grid; }

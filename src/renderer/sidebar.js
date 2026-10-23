@@ -20,17 +20,24 @@ homie.on('start-rename', (id) => startRename(id));
 
 function render() {
   if (renaming) return;
-  groupsEl.replaceChildren(...S.groups.map((g) => {
-    const sec = document.createElement('section'); sec.className = 'group';
-    const h = document.createElement('h2');
-    const f = document.createElement('span'); f.className = 'folder'; f.innerHTML = FOLDER;
-    const n = document.createElement('span'); n.textContent = g.name;
-    h.append(f, n); sec.append(h);
-    for (const t of g.tabs) sec.append(row(t));
-    return sec;
-  }));
-  todayEl.replaceChildren(...S.today.map(row));
-  todaySection.classList.toggle('has', S.today.length > 0);
+  // groups: sections keyed by name, rows keyed by tab id, so rows can enter and leave in place
+  const sections = new Map([...groupsEl.querySelectorAll('section.group')].map((el) => [el.dataset.name, el]));
+  let cursor = groupsEl.firstChild;
+  for (const g of S.groups) {
+    let sec = sections.get(g.name);
+    if (!sec) {
+      sec = document.createElement('section'); sec.className = 'group'; sec.dataset.name = g.name;
+      const h = document.createElement('h2');
+      const f = document.createElement('span'); f.className = 'folder'; f.innerHTML = FOLDER;
+      const n = document.createElement('span'); n.textContent = g.name;
+      h.append(f, n); sec.append(h);
+    } else sections.delete(g.name);
+    if (sec !== cursor) groupsEl.insertBefore(sec, cursor); else cursor = cursor.nextSibling;
+    reconcile(sec, g.tabs, sec.querySelector('h2'));
+  }
+  for (const sec of sections.values()) sec.remove();
+  reconcile(todayEl, S.today, null);
+  todaySection.classList.toggle('has', S.today.length > 0 || todayEl.querySelector('.tab.leave'));
   $('#back').disabled = !S.canGoBack; $('#fwd').disabled = !S.canGoForward;
   addressEl.textContent = host(S.url);
   const act = document.querySelector('.tab.active'); if (act) act.scrollIntoView({ block: 'nearest' });
@@ -41,10 +48,41 @@ function render() {
   else { meta.textContent = ''; meta.classList.remove('busy'); }
 }
 
+// Arc's timings, measured 2026-10-23: a new row appears at full height and fades in over
+// about 50 ms; a closed row collapses over about 50 ms; the highlight moves at once.
+function reconcile(container, tabs, after) {
+  const existing = new Map();
+  for (const el of container.querySelectorAll('.tab[data-id]')) if (!el.classList.contains('leave')) existing.set(Number(el.dataset.id), el);
+  let cursor = after ? after.nextSibling : container.firstChild;
+  for (const t of tabs) {
+    let el = existing.get(t.id);
+    if (el) { existing.delete(t.id); update(el, t); }
+    else { el = row(t); el.classList.add('enter'); el.addEventListener('animationend', () => el.classList.remove('enter'), { once: true }); }
+    while (cursor && cursor.classList?.contains('leave')) cursor = cursor.nextSibling;
+    if (el !== cursor) container.insertBefore(el, cursor); else cursor = cursor.nextSibling;
+  }
+  for (const el of existing.values()) {
+    el.classList.add('leave'); el.style.height = el.offsetHeight + 'px';
+    requestAnimationFrame(() => { el.style.height = '0px'; el.style.marginBottom = '0px'; el.style.opacity = '0'; });
+    el.addEventListener('transitionend', () => { el.remove(); if (container === todayEl) todaySection.classList.toggle('has', S.today.length > 0 || !!todayEl.querySelector('.tab')); }, { once: true });
+    setTimeout(() => el.remove(), 200);
+  }
+}
+
+function signature(t) { return [t.kind, t.url, t.label, t.title, t.favicon, t.unread, t.muted, t.loading, t.loaded, t.away, t.id === S.activeId].join('\u0001'); }
+
+function update(el, t) {
+  const sig = signature(t);
+  if (el.dataset.sig === sig) return;
+  const fresh = row(t);
+  el.className = fresh.className; el.dataset.sig = sig;
+  el.replaceChildren(...fresh.childNodes);
+}
+
 function row(t) {
   const el = document.createElement('div');
   el.className = `tab ${t.kind}` + (t.id === S.activeId ? ' active' : '') + (t.loaded ? ' loaded' : '') + (t.loading ? ' loading' : '') + (t.muted ? ' muted' : '') + (t.away ? ' away' : '');
-  el.dataset.id = t.id;
+  el.dataset.id = t.id; el.dataset.sig = signature(t);
   const ico = document.createElement('span'); ico.className = 'ico';
   if (t.favicon) { const img = document.createElement('img'); img.src = t.favicon; img.onerror = () => { img.replaceWith(letter(t)); }; ico.append(img); } else ico.append(letter(t));
   const slash = document.createElement('span'); slash.className = 'slash'; slash.textContent = '/';
@@ -53,10 +91,10 @@ function row(t) {
   const x = document.createElement('button'); x.className = 'x'; x.textContent = t.kind === 'pinned' ? '↺' : '×'; x.title = t.kind === 'pinned' ? 'Back to the pinned page' : 'Close';
   x.addEventListener('click', (e) => { e.stopPropagation(); homie.send('close', t.id); });
   el.append(ico, slash, label, badge, x);
-  el.addEventListener('click', () => homie.send('activate', t.id));
-  el.addEventListener('auxclick', (e) => { if (e.button === 1) homie.send('close', t.id); });
-  el.addEventListener('contextmenu', (e) => { e.preventDefault(); homie.send('context', t.id, e.clientX, e.clientY); });
-  if (t.kind === 'pinned') el.addEventListener('dblclick', () => startRename(t.id));
+  el.onclick = () => homie.send('activate', Number(el.dataset.id));
+  el.onauxclick = (e) => { if (e.button === 1) homie.send('close', Number(el.dataset.id)); };
+  el.oncontextmenu = (e) => { e.preventDefault(); homie.send('context', Number(el.dataset.id), e.clientX, e.clientY); };
+  if (t.kind === 'pinned') el.ondblclick = () => startRename(Number(el.dataset.id));
   return el;
 }
 
