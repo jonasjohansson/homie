@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src data:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>Downloads</title>
+<link rel="stylesheet" href="downloads.css">
+</head>
+<body>
+<header>
+  <h1>Downloads</h1>
+  <div class="actions">
+    <button id="folder">Open folder</button>
+    <button id="clear">Clear list</button>
+  </div>
+</header>
+<p id="empty" hidden>Nothing downloaded yet. Files land in ~/Downloads and are listed here. Drag a row to put the file somewhere else.</p>
+<div id="rows"></div>
+<script src="downloads.js"></script>
+</body>
+</html>

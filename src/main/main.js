@@ -4,7 +4,7 @@ import { Bookmarks } from './bookmarks.js';
 import { TabManager } from './tabs.js';
 import { buildMenu } from './menu.js';
 import { setupExtensions } from './extensions.js';
-import { setupDownloads } from './downloads.js';
+import { Downloads } from './downloads.js';
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -36,7 +36,9 @@ app.whenReady().then(async () => {
   const extensions = await setupExtensions(ses, () => mgr);
   const bookmarks = new Bookmarks(() => mgr?.syncBookmarks());
   mgr = new TabManager({ bookmarks, extensions });
-  setupDownloads(ses, mgr);
+  mgr.downloads = new Downloads(mgr);
+  mgr.downloads.attach(ses);
+  mgr.downloads.wireIpc();
   mgr.wireIpc();
   mgr.createWindow();
   buildMenu(mgr, bookmarks);

@@ -1,5 +1,5 @@
 const $ = (s) => document.querySelector(s);
-const omni = $('#omni'), suggest = $('#suggest'), groupsEl = $('#groups'), todayEl = $('#today'), todaySection = $('#todaySection'), dlEl = $('#downloads');
+const omni = $('#omni'), suggest = $('#suggest'), groupsEl = $('#groups'), todayEl = $('#today'), todaySection = $('#todaySection'), dlRow = $('#dlrow');
 let S = { groups: [], today: [], activeId: null, url: '', downloads: [] };
 let mode = 'url';          // 'url' | 'new' | 'find' | 'pin'
 let pinTarget = null;
@@ -121,27 +121,15 @@ $('#fwd').addEventListener('click', () => homie.send('nav', 'forward'));
 $('#reload').addEventListener('click', () => homie.send('nav', 'reload'));
 $('#clearToday').addEventListener('click', () => homie.send('clear-today'));
 
-// --- downloads ------------------------------------------------------------------------
+// --- downloads row ------------------------------------------------------------------
 function renderDownloads() {
-  const list = S.downloads || [];
-  dlEl.hidden = !list.length;
-  if (!list.length) return;
-  const h = document.createElement('h2'); h.innerHTML = '<span>Downloads</span>';
-  const clear = document.createElement('button'); clear.textContent = 'Clear'; clear.addEventListener('click', () => homie.send('download-action', 0, 'clear')); h.append(clear);
-  dlEl.replaceChildren(h, ...list.slice().reverse().map((d) => {
-    const el = document.createElement('div'); el.className = 'dl';
-    const n = document.createElement('span'); n.className = 'n'; n.textContent = d.name; n.title = d.path;
-    const s = document.createElement('span'); s.className = 's';
-    s.textContent = d.state === 'completed' ? size(d.total) : d.state === 'progressing' ? (d.total ? Math.round(d.received / d.total * 100) + '%' : size(d.received)) : d.state;
-    el.append(n, s);
-    if (d.state === 'progressing') { const bar = document.createElement('div'); bar.className = 'bar'; const i = document.createElement('i'); i.style.width = d.total ? (d.received / d.total * 100) + '%' : '30%'; bar.append(i); el.append(bar); }
-    el.addEventListener('dblclick', () => homie.send('download-action', d.id, 'open'));
-    el.addEventListener('click', () => { if (d.state === 'completed') homie.send('download-action', d.id, 'reveal'); });
-    el.addEventListener('contextmenu', (e) => { e.preventDefault(); homie.send('download-action', d.id, d.state === 'progressing' ? 'cancel' : 'reveal'); });
-    return el;
-  }));
+  const d = S.downloads; const meta = dlRow.querySelector('.meta');
+  dlRow.classList.toggle('active', !!S.downloadsActive);
+  if (!d) { meta.textContent = ''; return; }
+  if (d.active) { meta.textContent = d.total ? Math.round(d.received / d.total * 100) + '%' : d.active + ' ↓'; meta.classList.add('busy'); }
+  else { meta.textContent = d.count ? String(d.count) : ''; meta.classList.remove('busy'); }
 }
-function size(b) { if (!b) return ''; const u = ['B', 'KB', 'MB', 'GB']; let i = 0; while (b >= 1024 && i < 3) { b /= 1024; i++; } return b.toFixed(i ? 1 : 0) + ' ' + u[i]; }
+dlRow.addEventListener('click', () => homie.send('show-downloads'));
 
 // --- resize ---------------------------------------------------------------------------
 const handle = $('#handle');

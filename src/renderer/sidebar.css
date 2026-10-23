@@ -77,12 +77,10 @@ h2 button { font-size: 11px; font-weight: 500; text-transform: none; letter-spac
 
 #todaySection:not(.has) { display: none; }
 
-#downloads { flex: none; border-top: 1px solid var(--line); padding: 6px var(--pad); max-height: 160px; overflow-y: auto; }
-#downloads h2 { padding: 0; margin: 0 0 2px; height: 22px; }
-.dl { height: var(--row); display: grid; grid-template-columns: 1fr auto; gap: var(--gap); align-items: center; white-space: nowrap; }
-.dl .n { overflow: hidden; text-overflow: ellipsis; }
-.dl .s { font-size: 11px; color: var(--fg-muted); }
-.dl .bar { grid-column: 1 / -1; height: 2px; background: var(--field); margin-top: -8px; }
-.dl .bar i { display: block; height: 100%; background: var(--fg-muted); }
+#dlrow { flex: none; margin: 0 6px 8px; grid-template-columns: var(--icon) 1fr auto; border-top: 1px solid var(--line); border-radius: 0; padding-top: 6px; height: calc(var(--row) + 6px); }
+#dlrow.active { background: none; }
+#dlrow.active .label { font-weight: 600; }
+#dlrow .meta { font-size: 11px; color: var(--fg-muted); }
+#dlrow .meta.busy { color: var(--fg); }
 
 #handle { position: absolute; top: 0; right: -3px; width: 6px; height: 100%; cursor: col-resize; -webkit-app-region: no-drag; }

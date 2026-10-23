@@ -47,6 +47,7 @@ export function buildMenu(mgr, bookmarks) {
       { label: 'Zoom Out', accelerator: 'Cmd+-', click: () => { const w = wc(); if (w) w.setZoomLevel(w.getZoomLevel() - 0.5); } },
       { label: 'Actual Size', accelerator: 'Cmd+0', click: () => wc()?.setZoomLevel(0) },
       { type: 'separator' },
+      { label: 'Downloads', accelerator: 'Cmd+Shift+J', click: () => mgr.showDownloads() },
       { label: 'Hide Sidebar', accelerator: 'Cmd+Shift+S', click: () => mgr.toggleSidebar() },
       { role: 'togglefullscreen' },
       { type: 'separator' },

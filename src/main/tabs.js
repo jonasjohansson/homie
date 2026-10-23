@@ -60,6 +60,7 @@ export class Tab {
     this.loading = false;
     this.view = null;
     this.notifications = new Map();
+    this.page = opts.page || null;        // internal pages: a file under src/renderer
   }
 
   get loaded() { return !!this.view && !this.view.webContents.isDestroyed(); }
@@ -73,7 +74,8 @@ export class Tab {
 
   load(url = this.url) {
     if (!this.loaded) this.mgr.createView(this);
-    this.wc.loadURL(url).catch(() => {});
+    if (this.kind === 'internal') this.wc.loadFile(this.page).catch(() => {});
+    else this.wc.loadURL(url).catch(() => {});
   }
 
   unload() {
@@ -117,7 +119,7 @@ export class TabManager {
     this.closed = [];          // urls, for Cmd+Shift+T
     this.sidebarHidden = false;
     this.sidebarDragging = false;
-    this.downloads = [];
+    this.downloads = null;         // set by main to the Downloads store
     this.pushTimer = null;
     this.win = null;
   }
@@ -176,20 +178,29 @@ export class TabManager {
 
   // --- views ------------------------------------------------------------------------
   createView(tab) {
+    const internal = tab.kind === 'internal';
     const view = new WebContentsView({
-      webPreferences: { preload: PAGE_PRELOAD, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: true, partition: 'persist:homie' },
+      webPreferences: internal
+        ? { preload: SIDEBAR_PRELOAD, sandbox: false, contextIsolation: true, nodeIntegration: false, partition: 'homie-ui' }
+        : { preload: PAGE_PRELOAD, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: true, partition: 'persist:homie' },
     });
     tab.view = view;
     const wc = view.webContents;
     wc.setAudioMuted(tab.muted);
     this.win.contentView.addChildView(view, 0);
     view.setVisible(false);
+    if (internal) {
+      wc.on('page-title-updated', (_e, title) => { tab.title = title; this.push(); this.updateWindowTitle(); });
+      wc.on('context-menu', (e) => e.preventDefault());
+      wc.setWindowOpenHandler(({ url }) => { this.open(url); return { action: 'deny' }; });
+      return view;
+    }
     this.addingTab = true;
     try { this.extensions?.addTab(wc, this.win); } catch (e) { console.error('extensions.addTab', e.message); }
     this.addingTab = false;
 
-    wc.on('page-title-updated', (_e, title) => { tab.titleChanged(title); this.push(); this.updateWindowTitle(); });
-    wc.on('page-favicon-updated', (_e, icons) => { if (icons?.length) { tab.favicon = icons[0]; this.push(); } });
+    wc.on('page-title-updated', (_e, title) => { tab.titleChanged(title); if (tab.kind === 'today') this.saveToday(); this.push(); this.updateWindowTitle(); });
+    wc.on('page-favicon-updated', (_e, icons) => { if (icons?.length) { tab.favicon = icons[0]; if (tab.kind === 'today') this.saveToday(); this.push(); } });
     wc.on('did-start-loading', () => { tab.loading = true; this.push(); });
     wc.on('did-stop-loading', () => { tab.loading = false; this.push(); });
     const nav = (url) => { tab.url = url; recordVisit(url, tab.title); if (tab.kind === 'today') this.saveToday(); this.push(); };
@@ -259,7 +270,30 @@ export class TabManager {
   }
 
   allPinned() { return this.groups.flatMap((g) => g.tabs); }
-  ordered() { return [...this.allPinned(), ...this.today]; }
+  ordered() { return [...this.allPinned(), ...this.today, ...(this.downloadsTab ? [this.downloadsTab] : [])]; }
+
+  showDownloads() {
+    if (!this.downloadsTab) {
+      this.downloadsTab = new Tab(this, { kind: 'internal', url: 'homie://downloads', label: 'Downloads', title: 'Downloads', page: path.join(__dirname, '..', 'renderer', 'downloads.html') });
+      this.tabs.set(this.downloadsTab.id, this.downloadsTab);
+    }
+    this.focus();
+    this.activate(this.downloadsTab.id);
+  }
+
+  downloadContextMenu(r, x, y, act) {
+    const busy = r.state === 'progressing';
+    const items = busy ? [{ label: 'Cancel', click: () => act('cancel') }] : [
+      { label: 'Open', click: () => act('open') },
+      { label: 'Show in Finder', click: () => act('reveal') },
+      { label: 'Copy Download Address', click: () => act('copy-url') },
+      { type: 'separator' },
+      { label: 'Remove from List', click: () => act('remove') },
+      { label: 'Move to Trash', click: () => act('trash') },
+    ];
+    const sbw = this.sidebarHidden ? 0 : state.sidebarWidth;
+    Menu.buildFromTemplate(items).popup({ window: this.win, x: Math.round(x) + sbw, y: Math.round(y) });
+  }
 
   restoreToday() {
     for (const row of state.today || []) {
@@ -284,7 +318,8 @@ export class TabManager {
     try { this.extensions?.selectTab(t.wc); } catch {}
     this.layout();
     t.wc.focus();
-    state.activeUrl = t.kind === 'pinned' ? t.pinnedUrl : t.url; saveState();
+    if (t.kind !== 'internal') { state.activeUrl = t.kind === 'pinned' ? t.pinnedUrl : t.url; saveState(); }
+    if (t === this.downloadsTab) this.downloads?.pushPage();
     this.updateWindowTitle();
     this.push();
   }
@@ -313,6 +348,13 @@ export class TabManager {
   close(id) {
     const t = this.tabs.get(id);
     if (!t) return;
+    if (t.kind === 'internal') {
+      const next = this.neighbour(t);
+      t.unload();
+      if (this.active === t && next) this.activate(next.id);
+      this.push();
+      return;
+    }
     if (t.kind === 'pinned') {
       if (t.away) { t.load(t.pinnedUrl); return; }
       const next = this.neighbour(t);
@@ -498,7 +540,8 @@ export class TabManager {
       activeId: a?.id ?? null,
       url: a?.url || '',
       canGoBack: !!h?.canGoBack(), canGoForward: !!h?.canGoForward(),
-      downloads: this.downloads.slice(-8),
+      downloads: this.downloads?.summary() || null,
+      downloadsActive: !!this.downloadsTab && a === this.downloadsTab,
       sidebarWidth: state.sidebarWidth,
     };
   }
@@ -532,11 +575,7 @@ export class TabManager {
       else if (phase === 'move') { state.sidebarWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(width))); this.sendUI('sidebar-width', state.sidebarWidth); }
       else { this.sidebarDragging = false; this.setSidebarWidth(width); this.push(); }
     });
-    ipcMain.on('download-action', (e, id, what) => {
-      if (!fromUI(e)) return; const d = this.downloads.find((x) => x.id === id); if (!d) return;
-      if (what === 'open') shell.openPath(d.path); else if (what === 'reveal') shell.showItemInFolder(d.path);
-      else if (what === 'cancel') d.item?.cancel(); else if (what === 'clear') { this.downloads = this.downloads.filter((x) => x.state === 'progressing'); this.push(); }
-    });
+    ipcMain.on('show-downloads', (e) => fromUI(e) && this.showDownloads());
     ipcMain.on('focus-page', (e) => fromUI(e) && this.active?.wc?.focus());
     ipcMain.on('homie:notification', (e, payload) => this.notify(e.sender, payload || {}));
   }
