@@ -14,7 +14,7 @@ const PAGE_PRELOAD = path.join(__dirname, '..', 'preload', 'page.cjs');
 const SIDEBAR_PRELOAD = path.join(__dirname, '..', 'preload', 'sidebar.cjs');
 const SIDEBAR_MIN = 180, SIDEBAR_MAX = 480;
 // Arc's geometry, measured 2026-10-23: card margins 10, toolbar 32 inside the card, radius 12
-const TOOLBAR = 32, MARGIN = 10, RADIUS = 12;
+const TOOLBAR = 32, MARGIN = 10, RADIUS = 12, GUTTER = 10, PANE_MIN = 240, MAX_PANES = 4;
 const PALETTE_W = 640;
 const SIDEBAR_MS = 90;   // Arc: the card edge settles in 60 to 90 ms with an ease-out
 const STAGGER_MS = 600;
@@ -156,7 +156,7 @@ export class TabManager {
     this.palette.webContents.loadFile(path.join(__dirname, '..', 'renderer', 'palette.html'));
     this.palette.webContents.on('context-menu', (e) => e.preventDefault());
 
-    this.win.on('resize', () => { this.layout(); this.saveBounds(); });
+    this.win.on('resize', () => { this.layout(); this.saveBounds(); this.push(); });   // the chrome's cards follow the pane rects
     this.win.on('move', () => this.saveBounds());
     this.win.on('close', (e) => {
       if (!app.quitting) { e.preventDefault(); this.win.hide(); }
@@ -182,23 +182,90 @@ export class TabManager {
     const card = this.fullscreenTab
       ? { x: 0, y: 0, width: w, height: h }
       : { x, y, width: Math.max(0, w - x - MARGIN), height: Math.max(0, h - y - MARGIN) };
+    const panes = this.fullscreenTab ? [this.fullscreenTab] : this.visiblePanes();
+    const rects = this.paneRects(card, panes.length);
     for (const t of this.tabs.values()) {
       if (!t.loaded) continue;
-      const on = t === this.active;
-      if (on) { t.view.setBounds(card); t.view.setBorderRadius?.(this.fullscreenTab ? 0 : RADIUS); }
+      const i = panes.indexOf(t), on = i >= 0;
+      if (on) { t.view.setBounds(rects[i]); t.view.setBorderRadius?.(this.fullscreenTab ? 0 : RADIUS); }
       t.view.setVisible(on && !this.sidebarDragging);
     }
-    const pw = Math.min(PALETTE_W, card.width - 40);
-    this.palette.setBounds({ x: card.x + Math.round((card.width - pw) / 2), y: card.y + Math.round(card.height * 0.33) - 24, width: pw, height: this.paletteHeight });
-    return card;
+    const focus = Math.max(0, panes.indexOf(this.active));
+    const pr = rects[focus] || card;
+    const pw = Math.min(PALETTE_W, pr.width - 40);
+    this.palette.setBounds({ x: pr.x + Math.round((pr.width - pw) / 2), y: pr.y + Math.round(pr.height * 0.33) - 24, width: pw, height: this.paletteHeight });
+    this.rects = rects;
+    return rects[focus] || card;
+  }
+
+  // --- split view: Arc's model, one axis, each pane its own card with its own toolbar --------
+  // this.split = { panes: [Tab], factors: [], focus } stays while another tab is shown and
+  // comes back when any member is activated. this.active is always the focused pane.
+  visiblePanes() {
+    const a = this.active;
+    if (this.split && a && this.split.panes.includes(a)) return this.split.panes;
+    return a ? [a] : [];
+  }
+  paneRects(card, n) {
+    if (n <= 1) return [card];
+    const f = this.split?.factors?.length === n ? this.split.factors : Array(n).fill(1);
+    const sum = f.reduce((a, b) => a + b, 0), avail = card.width - GUTTER * (n - 1);
+    const rects = []; let x = card.x;
+    for (let i = 0; i < n; i++) {
+      const w = i === n - 1 ? card.x + card.width - x : Math.round(avail * f[i] / sum);
+      rects.push({ x, y: card.y, width: Math.max(0, w), height: card.height }); x += w + GUTTER;
+    }
+    return rects;
+  }
+  splitWith(id, { duplicate = false } = {}) {
+    let t = this.tabs.get(id); const a = this.active;
+    if (!t || !a || a.kind === 'internal' || t.kind === 'internal') return;
+    if (t === a) { if (!duplicate) return; t = this.open(a.url, { after: a.kind === 'today' ? a : null, background: true }); }
+    if (!this.split || !this.split.panes.includes(a)) this.split = { panes: [a], factors: [], focus: 0 };
+    if (this.split.panes.includes(t)) return this.activate(t.id);
+    if (this.split.panes.length >= MAX_PANES) return;
+    this.split.panes.push(t); this.split.factors = [];
+    this.activate(t.id);
+  }
+  removePane(t, { closeTab = false } = {}) {
+    const sp = this.split; if (!sp || !sp.panes.includes(t)) return false;
+    sp.panes.splice(sp.panes.indexOf(t), 1); sp.factors = [];
+    if (sp.panes.length < 2) this.split = null;
+    const next = (this.split?.panes || sp.panes)[0];
+    const wasActive = this.active === t;   // unload lets the extensions library select another tab first
+    if (closeTab) { if (t.kind === 'today') this.close(t.id); else { t.unload(); } }
+    if (wasActive || !this.active) { if (next) this.activate(next.id); } else this.layout();
+    this.saveSplit(); this.push();
+    return true;
+  }
+  closePane() { const a = this.active; if (a && this.split?.panes.includes(a)) this.removePane(a, { closeTab: true }); }
+  focusPane(i) { const p = this.split?.panes; if (!p || !this.visiblePanes().includes(this.active) || p.length < 2) return; const n = ((i % p.length) + p.length) % p.length; this.activate(p[n].id); }
+  stepPane(d) { const p = this.split?.panes; if (!p) return; this.focusPane(p.indexOf(this.active) + d); }
+  setFactorsFromDrag(i, x) {
+    const sp = this.split, rects = this.rects; if (!sp || !rects || rects.length < 2) return;
+    const left = rects[i].x, right = rects[i + 1].x + rects[i + 1].width;
+    const w0 = Math.max(PANE_MIN, Math.min(right - GUTTER - PANE_MIN, x - left));
+    const widths = rects.map((r) => r.width); widths[i] = w0; widths[i + 1] = right - GUTTER - left - w0;
+    sp.factors = widths.map((w) => w / widths.reduce((a, b) => a + b, 0));
+    this.layout();
+  }
+  saveSplit() { state.split = this.split ? { urls: this.split.panes.map((t) => (t.kind === 'pinned' ? t.pinnedUrl : t.url)), factors: this.split.factors, focus: this.split.panes.indexOf(this.active) } : null; saveState(); }
+  restoreSplit() {
+    const sv = state.split; if (!sv?.urls?.length) return;
+    const panes = sv.urls.map((u) => this.allPinned().find((t) => t.pinnedUrl === u) || this.today.find((t) => t.url === u)).filter(Boolean);
+    if (panes.length < 2) return;
+    this.split = { panes, factors: sv.factors?.length === panes.length ? sv.factors : [], focus: 0 };
+    if (this.active && panes.includes(this.active)) { for (const t of panes) if (!t.loaded) t.load(); this.layout(); }
   }
 
   // Move the active page view to its new card over SIDEBAR_MS, in step with the chrome's CSS
   // transition; the chrome paints the tint under the page, so nothing shows through.
   animateLayout() {
-    const view = this.active?.view; if (!view || !this.active.loaded || nativeTheme.prefersReducedMotion) return this.layout();
-    const from = view.getBounds();
-    const to = this.layout();
+    const panes = this.visiblePanes().filter((t) => t.loaded);
+    if (!panes.length || nativeTheme.prefersReducedMotion) return this.layout();
+    const froms = panes.map((t) => t.view.getBounds());
+    this.layout();
+    const tos = panes.map((t) => t.view.getBounds());
     clearInterval(this.animTimer);
     const t0 = Date.now();
     // the same critically damped spring the chrome uses (SwiftUI .default shape), sampled
@@ -206,7 +273,7 @@ export class TabManager {
     const ease = (p) => { const i = Math.min(K.length - 2, Math.floor(p * (K.length - 1))); const f = p * (K.length - 1) - i; return K[i] + (K[i + 1] - K[i]) * f; };
     this.animTimer = setInterval(() => {
       const p = Math.min(1, (Date.now() - t0) / SIDEBAR_MS), e = ease(p);
-      view.setBounds({ x: Math.round(from.x + (to.x - from.x) * e), y: to.y, width: Math.round(from.width + (to.width - from.width) * e), height: to.height });
+      panes.forEach((t, i) => { if (!t.loaded) return; const from = froms[i], to = tos[i]; t.view.setBounds({ x: Math.round(from.x + (to.x - from.x) * e), y: to.y, width: Math.round(from.width + (to.width - from.width) * e), height: to.height }); });
       if (p >= 1) { clearInterval(this.animTimer); this.layout(); }
     }, 8);
   }
@@ -252,6 +319,7 @@ export class TabManager {
     this.addingTab = false;
 
     wc.on('page-title-updated', (_e, title) => { tab.titleChanged(title); if (tab.kind === 'today') this.saveToday(); this.push(); this.updateWindowTitle(); });
+    wc.on('focus', () => { if (this.active !== tab && this.split?.panes.includes(tab) && this.visiblePanes().includes(tab)) this.activate(tab.id); });   // a click in a pane focuses it
     wc.on('page-favicon-updated', (_e, icons) => { if (icons?.length) { tab.favicon = icons[0]; if (tab.kind === 'today') this.saveToday(); this.push(); } });
     wc.on('did-change-theme-color', (_e, color) => { tab.themeColor = color || ''; this.push(); });
     // no theme-color: paint the toolbar strip in the page's own background, as Arc does
@@ -284,7 +352,9 @@ export class TabManager {
   destroyView(tab) {
     if (!tab.view) return;
     const wc = tab.view.webContents;
+    this.removingTab = true;   // the library echoes removeTab back to the bridge; that echo must not close a neighbour
     try { this.extensions?.removeTab(wc); } catch {}
+    this.removingTab = false;
     this.win.contentView.removeChildView(tab.view);
     if (!wc.isDestroyed()) wc.close();
     tab.view = null;
@@ -374,6 +444,7 @@ export class TabManager {
     if (this.active?.wc && this.active !== t) this.active.wc.stopFindInPage('clearSelection');
     this.active = t;
     if (!t.loaded) t.load();
+    if (this.split?.panes.includes(t)) { this.split.focus = this.split.panes.indexOf(t); for (const p of this.split.panes) if (!p.loaded) p.load(); this.saveSplit(); }
     try { this.extensions?.selectTab(t.wc); } catch {}
     this.layout();
     t.wc.focus();
@@ -397,9 +468,12 @@ export class TabManager {
   }
 
   // navigation typed in the sidebar: a pinned tab navigates in place, Cmd+T opens a Today tab
-  navigate(text, { newTab = false } = {}) {
+  navigate(text, { newTab = false, split = false } = {}) {
     const url = resolveInput(text);
     if (!url) return;
+    if (split) { const t = this.open(url, { background: true }); this.splitWith(t.id); return; }
+    const pin = this.allPinned().find((p) => p.pinnedUrl === url);   // Arc: a pinned address switches to the pin
+    if (pin && (newTab || this.active !== pin)) return this.activate(pin.id);
     if (newTab || !this.active) return this.open(url);
     this.active.load(url);
   }
@@ -414,8 +488,8 @@ export class TabManager {
       this.push();
       return;
     }
+    if (this.split?.panes.includes(t)) { const inSplit = this.visiblePanes().includes(t); this.split.panes.splice(this.split.panes.indexOf(t), 1); this.split.factors = []; if (this.split.panes.length < 2) this.split = null; if (inSplit && this.active === t) { const next = (this.split?.panes || [])[0]; if (next) { t.kind === 'today' ? (this.closed.push({ url: t.url, title: t.title }), this.dropTab(t), this.saveToday()) : t.unload(); this.activate(next.id); this.saveSplit(); return; } } this.saveSplit(); }
     if (t.kind === 'pinned') {
-      if (t.away) { t.load(t.pinnedUrl); return; }
       const next = this.neighbour(t);
       t.unload();
       if (this.active === t && next) this.activate(next.id);
@@ -423,7 +497,7 @@ export class TabManager {
       return;
     }
     const next = this.neighbour(t);
-    this.closed.push(t.url);
+    this.closed.push({ url: t.url, title: t.title });
     this.dropTab(t);
     if (this.active === t) { this.active = null; if (next) this.activate(next.id); }
     this.saveToday();
@@ -437,6 +511,7 @@ export class TabManager {
   }
 
   dropTab(t) {
+    if (this.split?.panes.includes(t)) { this.split.panes.splice(this.split.panes.indexOf(t), 1); this.split.factors = []; if (this.split.panes.length < 2) this.split = null; }
     t.unload();
     this.tabs.delete(t.id);
     const i = this.today.indexOf(t); if (i >= 0) this.today.splice(i, 1);
@@ -444,8 +519,8 @@ export class TabManager {
     if (this.active === t) this.active = null;
   }
 
-  reopenClosed() { const url = this.closed.pop(); if (url) this.open(url); }
-  clearToday() { for (const t of [...this.today]) { this.closed.push(t.url); this.dropTab(t); } if (!this.active) { const f = this.allPinned()[0]; if (f) this.activate(f.id); } this.saveToday(); this.push(); }
+  reopenClosed() { const c = this.closed.pop(); if (c) this.open(typeof c === 'string' ? c : c.url, { title: c.title || '' }); }
+  clearToday() { for (const t of [...this.today]) { this.closed.push({ url: t.url, title: t.title }); this.dropTab(t); } if (!this.active) { const f = this.allPinned()[0]; if (f) this.activate(f.id); } this.saveToday(); this.push(); }
 
   byIndex(n) { const t = this.allPinned()[n]; if (t) this.activate(t.id); }
   step(dir) {
@@ -458,6 +533,7 @@ export class TabManager {
   // move the same Tab object, then write the bookmarks file, whose change syncs the groups.
   moveTab(id, groupName, index) {
     const t = this.tabs.get(id); if (!t || t.kind === 'internal') return;
+    if (t.kind === 'today' && groupName != null) { const twin = this.allPinned().find((p) => p.pinnedUrl === t.url); if (twin) { const was = this.active === t; this.dropTab(t); this.saveToday(); this.moveTab(twin.id, groupName, index); if (was) this.activate(twin.id); return; } }
     const from = this.groups.find((g) => g.tabs.includes(t));
     const label = t.kind === 'pinned' ? t.label : (t.title || '').replace(/^\(\d+\)\s*/, '').slice(0, 40);
     if (groupName == null) {                                    // → Today
@@ -504,7 +580,7 @@ export class TabManager {
     Menu.buildFromTemplate(items).popup({ window: this.win, x: Math.round(x), y: Math.round(y) });
   }
 
-  toggleSidebar() { this.sidebarHidden = !this.sidebarHidden; this.push(true); this.animateLayout(); }
+  toggleSidebar() { this.sidebarHidden = !this.sidebarHidden; this.animateLayout(); this.push(true); }   // layout first so the snapshot carries the new pane rects
   setSidebarWidth(w) { state.sidebarWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w))); saveState(); this.layout(); }
 
   badgesChanged() {
@@ -560,7 +636,8 @@ export class TabManager {
     items.push({ label: 'Copy Link', click: () => clipboard.writeText(t.url) });
     items.push({ label: 'Duplicate', click: () => this.open(t.url, { after: t.kind === 'today' ? t : null }) });
     items.push({ label: t.muted ? 'Unmute' : 'Mute', click: () => this.setMuted(t, !t.muted) });
-    items.push({ label: 'Open in Split View', enabled: false, click: () => {} });
+    if (this.split?.panes.includes(t) && this.visiblePanes().includes(t)) items.push({ label: 'Separate from Split View', click: () => this.removePane(t) });
+    else items.push({ label: 'Open in Split View', enabled: t !== this.active, click: () => this.splitWith(id) });
     items.push({ label: 'Move To', submenu: this.groups.map((g) => ({ label: g.name, type: 'checkbox', checked: g.tabs.includes(t), click: () => this.moveTab(id, g.name, undefined) })).concat(
       [{ type: 'separator' }, { label: 'Today', type: 'checkbox', checked: t.kind === 'today', click: () => this.moveTab(id, null, 0) }, { label: 'New Folder…', click: () => this.showPalette('pin', id) }]) });
     items.push({ type: 'separator' });
@@ -642,6 +719,8 @@ export class TabManager {
       groups: this.groups.map((g) => ({ name: g.name, icon: g.icon || '', collapsed: this.collapsed(g.name), tabs: g.tabs.map((t) => t.dto()) })),
       today: this.today.map((t) => t.dto()),
       activeId: a?.id ?? null,
+      panes: (this.fullscreenTab ? [] : this.visiblePanes()).map((t, i) => { const r = (this.rects || [])[i]; const h = t.wc && !t.wc.isDestroyed() ? t.wc.navigationHistory : null; return r ? { id: t.id, x: r.x, y: r.y - TOOLBAR, w: r.width, h: r.height + TOOLBAR, url: t.url, theme: t.themeColor || t.pageBg || '', canGoBack: !!h?.canGoBack(), canGoForward: !!h?.canGoForward(), focused: t === a } : null; }).filter(Boolean),
+      splitIds: this.split ? this.split.panes.map((t) => t.id) : [],
       url: a?.url || '',
       theme: a?.themeColor || a?.pageBg || '',
       canGoBack: !!h?.canGoBack(), canGoForward: !!h?.canGoForward(),
@@ -655,7 +734,21 @@ export class TabManager {
 
   wireIpc() {
     const fromUI = (e) => e.sender === this.sidebar?.webContents || e.sender === this.palette?.webContents;
-    ipcMain.on('activate', (e, id) => fromUI(e) && this.activate(id));
+    ipcMain.on('activate', (e, id, alt) => { if (!fromUI(e)) return; if (alt) this.splitWith(id, { duplicate: true }); else this.activate(id); });   // Arc: Option-click adds a split
+    ipcMain.on('split-with', (e, id) => fromUI(e) && this.splitWith(Number(id)));
+    ipcMain.on('pane', (e, id, what) => {
+      if (!fromUI(e)) return; const t = this.tabs.get(id); if (!t) return;
+      if (this.active !== t) this.activate(id);
+      const wc = t.wc; if (!wc) return;
+      if (what === 'back') wc.navigationHistory.goBack(); else if (what === 'forward') wc.navigationHistory.goForward(); else if (what === 'reload') wc.reload();
+      else if (what === 'address') this.showPalette('url'); else if (what === 'close') this.closePane(); else if (what === 'separate') this.removePane(t);
+    });
+    ipcMain.on('split-drag', (e, phase, i, x) => {
+      if (!fromUI(e)) return;
+      if (phase === 'start') { this.sidebarDragging = true; this.layout(); }
+      else if (phase === 'move') { this.setFactorsFromDrag(Number(i), Number(x)); this.push(); }
+      else { this.sidebarDragging = false; this.layout(); this.saveSplit(); this.push(); }
+    });
     ipcMain.on('close', (e, id) => fromUI(e) && this.close(id));
     ipcMain.on('navigate', (e, text, opts) => fromUI(e) && this.navigate(text, opts || {}));
     ipcMain.on('context', (e, id, x, y) => fromUI(e) && this.tabContextMenu(id, x, y));
@@ -686,6 +779,7 @@ export class TabManager {
       Menu.buildFromTemplate([
         { label: 'New Tab', accelerator: 'Cmd+T', click: () => this.showPalette('new') },
         { label: 'New Folder…', click: () => this.showPalette('folder', null) },
+        { label: 'New Split View', click: () => this.showPalette('split') },
       ]).popup({ window: this.win, x: Math.round(x), y: Math.round(y) });
     });
     ipcMain.on('rename-group', (e, oldName, newName) => fromUI(e) && this.bookmarks.renameGroup(String(oldName), String(newName || '').trim()));
@@ -694,7 +788,7 @@ export class TabManager {
     ipcMain.on('sidebar-drag', (e, phase, width) => {
       if (!fromUI(e)) return;
       if (phase === 'start') { this.sidebarDragging = true; this.layout(); }
-      else if (phase === 'move') { state.sidebarWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(width))); this.sendUI('sidebar-width', state.sidebarWidth); }
+      else if (phase === 'move') { state.sidebarWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(width))); this.layout(); this.sendUI('sidebar-width', state.sidebarWidth); this.push(); }
       else { this.sidebarDragging = false; this.setSidebarWidth(width); this.push(); }
     });
     ipcMain.on('show-downloads', (e) => fromUI(e) && this.showDownloads());

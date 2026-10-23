@@ -1,5 +1,5 @@
 const $ = (s) => document.querySelector(s);
-const groupsEl = $('#groups'), todayEl = $('#today'), todaySection = $('#todaySection'), dlRow = $('#dlrow'), addressEl = $('#address .host');
+const groupsEl = $('#groups'), todayEl = $('#today'), todaySection = $('#todaySection'), dlRow = $('#dlrow'), cardsEl = $('#cards'), guttersEl = $('#gutters'), toolbarT = $('#toolbarT');
 let S = { groups: [], today: [], activeId: null, url: '', downloads: null };
 let renaming = null, drag = null, renderAfterDrag = false, lastActive = null;
 
@@ -13,7 +13,6 @@ homie.on('state', (s) => {
   r.setProperty('--w', s.sidebarWidth + 'px');
   const tint = (s.tint || '').split(/\s+/).filter(Boolean);
   if (tint.length) { r.setProperty('--tint-top', tint[0]); r.setProperty('--tint-bottom', tint[1] || tint[0]); } else { r.removeProperty('--tint-top'); r.removeProperty('--tint-bottom'); }
-  if (s.theme) r.setProperty('--card', s.theme); else r.removeProperty('--card');
   document.body.classList.toggle('sidebar-hidden', !!s.sidebarHidden);
   render();
 });
@@ -48,8 +47,7 @@ function render() {
   for (const sec of sections.values()) sec.remove();
   reconcile(todayEl, S.today, null);
   todaySection.classList.toggle('has', S.today.length > 0 || !!todayEl.querySelector('.tab.leave'));
-  $('#back').disabled = !S.canGoBack; $('#fwd').disabled = !S.canGoForward;
-  addressEl.textContent = host(S.url);
+  renderCards();
   if (S.activeId !== lastActive) { lastActive = S.activeId; const act = document.querySelector('.tab.active'); if (act) act.scrollIntoView({ block: 'nearest' }); }   // only on a switch, never while scrolling
   const d = S.downloads, meta = dlRow.querySelector('.meta');
   dlRow.classList.toggle('active', !!S.downloadsActive);
@@ -79,7 +77,8 @@ function reconcile(container, tabs, after) {
   }
 }
 
-function signature(t) { return [t.kind, t.url, t.label, t.title, t.favicon, t.unread, t.muted, t.loading, t.loaded, t.away, t.id === S.activeId].join('\u0001'); }
+function inSplit(t) { return (S.panes || []).length > 1 && (S.splitIds || []).includes(t.id); }
+function signature(t) { return [t.kind, t.url, t.label, t.title, t.favicon, t.unread, t.muted, t.loading, t.loaded, t.away, t.id === S.activeId, inSplit(t)].join('\u0001'); }
 
 function update(el, t) {
   const sig = signature(t);
@@ -91,19 +90,19 @@ function update(el, t) {
 
 function row(t) {
   const el = document.createElement('div');
-  el.className = `tab ${t.kind}` + (t.id === S.activeId ? ' active' : '') + (t.loaded ? ' loaded' : '') + (t.loading ? ' loading' : '') + (t.muted ? ' muted' : '') + (t.away ? ' away' : '');
+  el.className = `tab ${t.kind}` + (t.id === S.activeId ? ' active' : '') + (inSplit(t) ? ' split' : '') + (t.loaded ? ' loaded' : '') + (t.loading ? ' loading' : '') + (t.muted ? ' muted' : '') + (t.away ? ' away' : '');
   el.dataset.id = t.id; el.dataset.sig = signature(t);
   const ico = document.createElement('span'); ico.className = 'ico';
   if (t.favicon) { const img = document.createElement('img'); img.src = t.favicon; img.onerror = () => { img.replaceWith(letter(t)); }; ico.append(img); } else ico.append(letter(t));
   if (t.away) { ico.title = 'Back to Pinned URL'; ico.onclick = (e) => { e.stopPropagation(); homie.send('reset', t.id); }; }   // Arc: the favicon of an away tab goes home
-  const slash = document.createElement('span'); slash.className = 'slash'; slash.textContent = '/';
-  const label = document.createElement('span'); label.className = 'label'; label.textContent = t.kind === 'pinned' && !t.away ? t.label : (t.title || host(t.url) || t.url);   // Arc: an away tab shows "/ page title"
+  const label = document.createElement('span'); label.className = 'label'; label.textContent = t.kind === 'pinned' ? t.label : (t.title || host(t.url) || t.url);
+  if (t.away) { const cur = document.createElement('span'); cur.className = 'cur'; cur.textContent = ' / ' + (t.title || host(t.url)); label.append(cur); }   // Arc: "name / page title" while away
   label.title = t.url;
   const badge = document.createElement('span'); badge.className = 'badge'; if (t.unread > 0) badge.textContent = t.unread > 99 ? '99+' : String(t.unread);
   const x = document.createElement('button'); x.className = 'x'; x.textContent = t.away ? '↺' : '×'; x.title = t.away ? 'Back to the pinned page' : t.kind === 'pinned' ? 'Unload' : 'Close';   // Arc: × unloads a pinned tab, ↺ only while it is away
   x.addEventListener('click', (e) => { e.stopPropagation(); homie.send('close', t.id); });
-  el.append(ico, slash, label, badge, x);
-  el.onclick = () => homie.send('activate', Number(el.dataset.id));
+  el.append(ico, label, badge, x);
+  el.onclick = (e) => homie.send('activate', Number(el.dataset.id), !!e.altKey);   // Arc: Option-click opens the tab in a split
   el.onauxclick = (e) => { if (e.button === 1) homie.send('close', Number(el.dataset.id)); };
   el.oncontextmenu = (e) => { e.preventDefault(); homie.send('context', Number(el.dataset.id), e.clientX, e.clientY); };
   if (t.kind === 'pinned') el.ondblclick = () => startRename(Number(el.dataset.id));
@@ -111,6 +110,11 @@ function row(t) {
 }
 
 function letter(t) { const s = document.createElement('span'); s.className = 'letter'; s.textContent = ((t.label || t.title || t.url).replace(/^https?:\/\/(www\.)?/, '')[0] || '?').toUpperCase(); return s; }
+function isLight(col) {
+  const m = /^#([0-9a-f]{6})$/i.exec(col || '') ? [1, 3, 5].map((i) => parseInt(col.slice(i, i + 2), 16)) : /rgba?\(([^)]+)\)/.exec(col || '')?.[1].split(',').map(Number);
+  if (!m) return !matchMedia('(prefers-color-scheme: dark)').matches;
+  return (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) > 140;
+}
 function host(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u === 'homie://downloads' ? 'Downloads' : ''; } }
 
 function startRenameGroup(name) {
@@ -182,23 +186,59 @@ function startRename(id) {
   input.addEventListener('click', (e) => e.stopPropagation());
 }
 
-$('#back').addEventListener('click', () => homie.send('nav', 'back'));
-$('#fwd').addEventListener('click', () => homie.send('nav', 'forward'));
-$('#reload').addEventListener('click', () => homie.send('nav', 'reload'));
-$('#address').addEventListener('click', () => homie.send('palette', 'url'));
 $('#newTab').addEventListener('click', () => homie.send('palette', 'new'));
 $('#plus').addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); homie.send('plus-menu', r.left, r.bottom); });   // Arc: New Tab, New Folder…
 $('#clearToday').addEventListener('click', () => homie.send('clear-today'));
 $('#toggle').addEventListener('click', () => homie.send('toggle-sidebar'));
-$('#toggle2').addEventListener('click', () => homie.send('toggle-sidebar'));
 dlRow.addEventListener('click', () => homie.send('show-downloads'));
 
 // --- resize: the page view is hidden while dragging, so every move reaches us --------
 $('#handle').addEventListener('mousedown', (e) => {
   e.preventDefault();
-  homie.send('sidebar-drag', 'start');
+  homie.send('sidebar-drag', 'start'); document.body.classList.add('resizing');
   const clamp = (x) => Math.max(180, Math.min(480, x));
   const move = (ev) => { const w = clamp(ev.clientX); document.documentElement.style.setProperty('--w', w + 'px'); homie.send('sidebar-drag', 'move', w); };
-  const up = (ev) => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); homie.send('sidebar-drag', 'end', clamp(ev.clientX)); };
+  const up = (ev) => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); document.body.classList.remove('resizing'); homie.send('sidebar-drag', 'end', clamp(ev.clientX)); };
   window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
 });
+
+// --- the cards: one per pane, placed where main put the page views -----------------------
+function renderCards() {
+  const panes = S.panes || [], n = panes.length;
+  const existing = new Map([...cardsEl.querySelectorAll('.card')].map((c) => [Number(c.dataset.id), c]));
+  panes.forEach((p, i) => {
+    let c = existing.get(p.id);
+    if (!c) { c = document.createElement('div'); c.className = 'card'; c.dataset.id = p.id; c.append(toolbarT.content.cloneNode(true)); wireToolbar(c, p.id); }
+    else existing.delete(p.id);
+    if (cardsEl.children[i] !== c) cardsEl.insertBefore(c, cardsEl.children[i] || null);
+    Object.assign(c.style, { left: p.x + 'px', top: p.y + 'px', width: p.w + 'px', height: p.h + 'px' });
+    if (p.theme) c.style.setProperty('--card', p.theme); else c.style.removeProperty('--card');
+    c.classList.toggle('light', isLight(p.theme));   // the toolbar's ink follows the page's colour, not the OS theme
+    c.classList.toggle('focused', !!p.focused); c.classList.toggle('single', n === 1);
+    c.querySelector('.back').disabled = !p.canGoBack; c.querySelector('.fwd').disabled = !p.canGoForward;
+    const h = c.querySelector('.host'), txt = host(p.url); if (h.textContent !== txt) h.textContent = txt;
+  });
+  for (const c of existing.values()) c.remove();
+  // gutters between panes carry the resize drag
+  guttersEl.replaceChildren(...panes.slice(0, -1).map((p, i) => {
+    const g = document.createElement('div'); g.className = 'gutter'; g.dataset.i = i;
+    const x = p.x + p.w, w = panes[i + 1].x - x;
+    Object.assign(g.style, { left: x + 'px', top: p.y + 'px', width: w + 'px', height: p.h + 'px' });
+    g.addEventListener('mousedown', (e) => {
+      e.preventDefault(); document.body.classList.add('resizing'); homie.send('split-drag', 'start', i, e.clientX);
+      const move = (ev) => homie.send('split-drag', 'move', i, ev.clientX);
+      const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); document.body.classList.remove('resizing'); homie.send('split-drag', 'end', i, 0); };
+      window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+    });
+    return g;
+  }));
+}
+function wireToolbar(c, id) {
+  c.querySelector('.toggle2').addEventListener('click', () => homie.send('toggle-sidebar'));
+  c.querySelector('.back').addEventListener('click', () => homie.send('pane', id, 'back'));
+  c.querySelector('.fwd').addEventListener('click', () => homie.send('pane', id, 'forward'));
+  c.querySelector('.reload').addEventListener('click', () => homie.send('pane', id, 'reload'));
+  c.querySelector('.address').addEventListener('click', () => homie.send('pane', id, 'address'));
+  c.querySelector('.paneClose').addEventListener('click', () => homie.send('pane', id, 'close'));
+  c.addEventListener('mousedown', () => { if (S.panes?.length > 1 && !S.panes.find((p) => p.id === id)?.focused) homie.send('activate', id); });   // a click on a pane's toolbar focuses it
+}

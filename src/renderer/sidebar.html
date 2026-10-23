@@ -9,7 +9,7 @@
 <body>
 <div id="sidebar">
   <div id="top" class="drag">
-    <button id="toggle" class="nodrag" title="Hide sidebar (Cmd+Shift+S)"><svg width="16" height="13" viewBox="0 0 16 13"><rect x="0.6" y="0.6" width="14.8" height="11.8" rx="3" fill="none" stroke="currentColor" stroke-width="1.05"/><line x1="5.9" y1="0.6" x2="5.9" y2="12.4" stroke="currentColor" stroke-width="1.05"/><path d="M2.2 3.5h2.2M2.2 5.5h2.2M2.2 7.5h2.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></button>
+    <button id="toggle" class="nodrag" title="Hide sidebar (Cmd+S)"><svg width="16" height="13" viewBox="0 0 16 13"><rect x="0.6" y="0.6" width="14.8" height="11.8" rx="3" fill="none" stroke="currentColor" stroke-width="1.05"/><line x1="5.9" y1="0.6" x2="5.9" y2="12.4" stroke="currentColor" stroke-width="1.05"/><path d="M2.2 3.5h2.2M2.2 5.5h2.2M2.2 7.5h2.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></button>
   </div>
   <div id="list">
     <div id="groups"></div>
@@ -25,18 +25,18 @@
   </div>
   <div id="handle"></div>
 </div>
-<div id="card">
-  <div id="toolbar" class="drag">
-    <div id="nav">
-      <button id="toggle2" class="nodrag" title="Show sidebar (Cmd+Shift+S)"><svg width="16" height="13" viewBox="0 0 16 13"><rect x="0.6" y="0.6" width="14.8" height="11.8" rx="3" fill="none" stroke="currentColor" stroke-width="1.05"/><line x1="5.9" y1="0.6" x2="5.9" y2="12.4" stroke="currentColor" stroke-width="1.05"/><path d="M2.2 3.5h2.2M2.2 5.5h2.2M2.2 7.5h2.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></button>
-      <button id="back" class="nodrag" title="Back"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M13 8H3M7 4 3 8l4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button id="fwd" class="nodrag" title="Forward"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button id="reload" class="nodrag" title="Reload"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<div id="cards"></div>
+<template id="toolbarT"><div class="toolbar drag">
+    <div class="nav">
+      <button class="toggle2 nodrag" title="Show sidebar (Cmd+S)"><svg width="16" height="13" viewBox="0 0 16 13"><rect x="0.6" y="0.6" width="14.8" height="11.8" rx="3" fill="none" stroke="currentColor" stroke-width="1.05"/><line x1="5.9" y1="0.6" x2="5.9" y2="12.4" stroke="currentColor" stroke-width="1.05"/><path d="M2.2 3.5h2.2M2.2 5.5h2.2M2.2 7.5h2.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></button>
+      <button class="back nodrag" title="Back"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M13 8H3M7 4 3 8l4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="fwd nodrag" title="Forward"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="reload nodrag" title="Reload"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
-    <button id="address" class="nodrag" title="Edit address (Cmd+L)"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M6.5 9.5a3 3 0 0 0 4.2 0l2-2a3 3 0 0 0-4.2-4.2l-1 1M9.5 6.5a3 3 0 0 0-4.2 0l-2 2a3 3 0 0 0 4.2 4.2l1-1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span class="host"></span></button>
-    <div id="tools"><browser-action-list class="nodrag" partition="persist:homie" alignment="bottom right"></browser-action-list></div>
-  </div>
-</div>
+    <button class="address nodrag" title="Edit address (Cmd+L)"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M6.5 9.5a3 3 0 0 0 4.2 0l2-2a3 3 0 0 0-4.2-4.2l-1 1M9.5 6.5a3 3 0 0 0-4.2 0l-2 2a3 3 0 0 0 4.2 4.2l1-1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span class="host"></span></button>
+    <div class="tools"><browser-action-list class="nodrag" partition="persist:homie" alignment="bottom right"></browser-action-list><button class="paneClose nodrag" title="Close Split View Pane"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></div>
+</div></template>
+<div id="gutters"></div>
 <script src="sidebar.js"></script>
 </body>
 </html>

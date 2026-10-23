@@ -9,7 +9,7 @@ homie.on('state', (s) => { S = s; });
 homie.on('open', (m, a) => {
   mode = m; arg = a; pinTarget = m === 'pin' ? a : null;
   document.body.className = m;
-  omni.placeholder = { find: 'Find in page', pin: 'Pin to folder', new: 'Search or enter address', folder: 'Folder name', 'edit-url': 'Pinned address', icon: 'An emoji for the folder (empty removes it)' }[m] || 'Edit address';
+  omni.placeholder = { find: 'Find in page', pin: 'Pin to folder', new: 'Search or enter address', folder: 'Folder name', 'edit-url': 'Pinned address', icon: 'An emoji for the folder (empty removes it)', split: 'Search or enter address for the new pane' }[m] || 'Edit address';
   const pinned = m === 'edit-url' ? S.groups.flatMap((g) => g.tabs).find((t) => t.id === a) : null;
   omni.value = m === 'url' ? S.url : m === 'edit-url' ? (pinned?.pinnedUrl || '') : m === 'icon' ? (S.groups.find((g) => g.name === a)?.icon || '') : '';
   showItems(m === 'pin' ? S.groups.map((g) => ({ kind: 'group', title: g.name })) : []);
@@ -41,8 +41,8 @@ omni.addEventListener('keydown', (e) => {
   if (mode === 'icon') { homie.send('group-icon', arg, omni.value.trim()); close(); return; }
   if (mode === 'edit-url') { const u = omni.value.trim(); if (u) homie.send('set-url', arg, u); close(); return; }
   const it = sel >= 0 ? items[sel] : null;
-  if (it?.kind === 'tab') homie.send('activate', it.id);
-  else if (omni.value.trim() || it) homie.send('navigate', it ? it.url : omni.value, { newTab: mode === 'new' || e.metaKey });
+  if (it?.kind === 'tab') homie.send(mode === 'split' ? 'split-with' : 'activate', it.id);
+  else if (omni.value.trim() || it) homie.send('navigate', it ? it.url : omni.value, { newTab: mode === 'new' || e.metaKey, split: mode === 'split' });
   close();
 });
 omni.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== omni && mode !== 'find') close(); }, 150));

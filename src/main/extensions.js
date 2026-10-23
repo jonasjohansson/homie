@@ -18,7 +18,7 @@ export async function setupExtensions(ses, getMgr) {
       },
       // addTab() marks a tab active synchronously; only honour selectTab from a real chrome.tabs call
       selectTab(wc) { const mgr = getMgr(); if (mgr.addingTab || mgr.active?.wc === wc) return; const t = [...mgr.tabs.values()].find((x) => x.wc === wc); if (t) mgr.activate(t.id); },
-      removeTab(wc) { const mgr = getMgr(); const t = [...mgr.tabs.values()].find((x) => x.wc === wc); if (t) mgr.close(t.id); },
+      removeTab(wc) { const mgr = getMgr(); if (mgr.removingTab) return; const t = [...mgr.tabs.values()].find((x) => x.wc === wc); if (t) mgr.close(t.id); },   // only a real chrome.tabs.remove
       async createWindow(details) { const mgr = getMgr(); mgr.open(Array.isArray(details.url) ? details.url[0] : details.url || 'about:blank'); return mgr.win; },
     });
     // icons for <browser-action-list> live in the UI session; popups need both

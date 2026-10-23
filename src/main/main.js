@@ -62,6 +62,7 @@ app.whenReady().then(async () => {
   buildMenu(mgr, bookmarks);
   mgr.restoreToday();
   mgr.syncBookmarks(true);
+  mgr.restoreSplit();
   for (const u of pending.splice(0)) mgr.open(u);
   const argUrl = process.argv.slice(1).find((a) => /^https?:\/\//.test(a));
   if (argUrl) mgr.open(argUrl);

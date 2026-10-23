@@ -11,18 +11,21 @@ const defaults = {
   sidebarWidth: 202,
   today: [],          // [{ url, title }]
   activeUrl: null,
+  split: null,        // { urls, factors, focus }
+  collapsed: {},      // folded folders by name
 };
 
 export const state = { ...defaults };
 let timer = null;
 
 export function loadState() {
-  try { Object.assign(state, defaults, JSON.parse(fs.readFileSync(file(), 'utf8'))); } catch {}
+  try { Object.assign(state, defaults, JSON.parse(fs.readFileSync(file(), 'utf8'))); } catch (e) { if (e.code !== 'ENOENT') console.error('state.json unreadable, starting fresh:', e.message); }
   return state;
 }
 
 export function saveState(now = false) {
   clearTimeout(timer);
-  const write = () => { try { fs.writeFileSync(file(), JSON.stringify(state, null, 2)); } catch {} };
+  // written to a temp file and renamed, so a kill mid-write cannot leave a truncated file
+  const write = () => { try { const f = file(); fs.writeFileSync(f + '.tmp', JSON.stringify(state, null, 2)); fs.renameSync(f + '.tmp', f); } catch (e) { console.error('state.json:', e.message); } };
   if (now) write(); else timer = setTimeout(write, 500);
 }
