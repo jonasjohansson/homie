@@ -24,8 +24,23 @@ const ALLOWED = new Set(['notifications', 'media', 'mediaKeySystem', 'fullscreen
 app.whenReady().then(async () => {
   loadState();
   const ses = session.fromPartition('persist:homie');
-  // Chrome's user agent: Google treats the Electron and app tokens as an unknown browser.
-  ses.setUserAgent(ses.getUserAgent().replace(/ Electron\/\S+/, '').replace(/ Homie\/\S+/, ''));
+  // Look like Chrome to Google's sign-in ("this browser or app may not be secure"): the
+  // reduced UA Chrome itself sends, and client-hint brands that include Google Chrome.
+  const major = process.versions.chrome.split('.')[0];
+  const ua = `Mozilla/5.0 (${process.platform === 'darwin' ? 'Macintosh; Intel Mac OS X 10_15_7' : process.platform === 'win32' ? 'Windows NT 10.0; Win64; x64' : 'X11; Linux x86_64'}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36`;
+  ses.setUserAgent(ua);
+  app.userAgentFallback = ua;
+  const brands = `"Chromium";v="${major}", "Google Chrome";v="${major}", "Not=A?Brand";v="24"`;
+  const fullBrands = `"Chromium";v="${process.versions.chrome}", "Google Chrome";v="${process.versions.chrome}", "Not=A?Brand";v="24.0.0.0"`;
+  ses.webRequest.onBeforeSendHeaders((details, cb) => {
+    const h = details.requestHeaders;
+    for (const k of Object.keys(h)) {
+      const lk = k.toLowerCase();
+      if (lk === 'sec-ch-ua') h[k] = brands;
+      else if (lk === 'sec-ch-ua-full-version-list') h[k] = fullBrands;
+    }
+    cb({ requestHeaders: h });
+  });
   ses.setPermissionRequestHandler((_wc, permission, cb) => cb(ALLOWED.has(permission)));
   ses.setPermissionCheckHandler((_wc, permission) => ALLOWED.has(permission));
   ses.setDisplayMediaRequestHandler((_req, cb) => {
