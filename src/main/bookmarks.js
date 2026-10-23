@@ -9,7 +9,7 @@ import path from 'node:path';
 import YAML from 'yaml';
 
 const STARTER = `# Homie — the pinned sidebar. Per tab: url (required), label, muted, badge (default true).
-# tint: "#2a2335"   # optional window colour
+# tint: "#0d0d1f #170e1f"   # optional window colour, one or two (top bottom)
 groups:
   - name: Homie
     tabs:
@@ -50,7 +50,7 @@ export class Bookmarks {
       groups.push({ name: String(g.name || ''), tabs });
     }
     this.groups = groups;
-    this.tint = typeof doc.tint === 'string' && /^#[0-9a-f]{6}$/i.test(doc.tint) ? doc.tint : '';
+    this.tint = typeof doc.tint === 'string' && /^#[0-9a-f]{6}(\s+#[0-9a-f]{6})?$/i.test(doc.tint.trim()) ? doc.tint.trim() : '';   // one colour, or two for a top-to-bottom gradient
     return true;
   }
 

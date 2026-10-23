@@ -13,7 +13,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PAGE_PRELOAD = path.join(__dirname, '..', 'preload', 'page.cjs');
 const SIDEBAR_PRELOAD = path.join(__dirname, '..', 'preload', 'sidebar.cjs');
 const SIDEBAR_MIN = 180, SIDEBAR_MAX = 480;
-const TOOLBAR = 44, MARGIN = 8, RADIUS = 10;     // the page is a card under a toolbar, as in Arc
+// Arc's geometry, measured 2026-10-23: card margins 10, toolbar 32 inside the card, radius 12
+const TOOLBAR = 32, MARGIN = 10, RADIUS = 12;
 const PALETTE_W = 640;
 const STAGGER_MS = 600;
 
@@ -127,7 +128,7 @@ export class TabManager {
   }
 
   // --- window ---------------------------------------------------------------------
-  tintColor() { return this.bookmarks.tint || (nativeTheme.shouldUseDarkColors ? '#2a2335' : '#ece8f1'); }
+  tintColor() { return (this.bookmarks.tint || '').split(/\s+/)[0] || (nativeTheme.shouldUseDarkColors ? '#0d0d1f' : '#ece8f1'); }
 
   createWindow() {
     const b = state.bounds || {};
@@ -176,9 +177,10 @@ export class TabManager {
     const hidden = this.sidebarHidden || !!this.fullscreenTab;
     const sbw = hidden ? 0 : state.sidebarWidth;
     this.sidebar.setBounds({ x: 0, y: 0, width: w, height: h });
+    const x = hidden ? MARGIN : sbw, y = MARGIN + TOOLBAR;
     const card = this.fullscreenTab
       ? { x: 0, y: 0, width: w, height: h }
-      : { x: sbw + MARGIN, y: TOOLBAR, width: Math.max(0, w - sbw - 2 * MARGIN), height: Math.max(0, h - TOOLBAR - MARGIN) };
+      : { x, y, width: Math.max(0, w - x - MARGIN), height: Math.max(0, h - y - MARGIN) };
     for (const t of this.tabs.values()) {
       if (!t.loaded) continue;
       const on = t === this.active;
@@ -186,7 +188,7 @@ export class TabManager {
       t.view.setVisible(on && !this.sidebarDragging);
     }
     const pw = Math.min(PALETTE_W, card.width - 40);
-    this.palette.setBounds({ x: card.x + Math.round((card.width - pw) / 2), y: card.y + Math.round(card.height * 0.18), width: pw, height: this.paletteHeight });
+    this.palette.setBounds({ x: card.x + Math.round((card.width - pw) / 2), y: card.y + 60, width: pw, height: this.paletteHeight });
   }
 
   raisePalette() { this.win.contentView.removeChildView(this.palette); this.win.contentView.addChildView(this.palette); }
@@ -231,6 +233,11 @@ export class TabManager {
 
     wc.on('page-title-updated', (_e, title) => { tab.titleChanged(title); if (tab.kind === 'today') this.saveToday(); this.push(); this.updateWindowTitle(); });
     wc.on('page-favicon-updated', (_e, icons) => { if (icons?.length) { tab.favicon = icons[0]; if (tab.kind === 'today') this.saveToday(); this.push(); } });
+    wc.on('did-change-theme-color', (_e, color) => { tab.themeColor = color || ''; this.push(); });
+    // no theme-color: paint the toolbar strip in the page's own background, as Arc does
+    const sampleBg = () => wc.executeJavaScript(`(() => { const c = getComputedStyle(document.body).backgroundColor; const h = getComputedStyle(document.documentElement).backgroundColor; return [c, h]; })()`, true)
+      .then(([c, h]) => { const pick = [c, h].find((v) => v && !/rgba\(.*,\s*0\)/.test(v) && v !== 'transparent'); tab.pageBg = pick || ''; this.push(); }).catch(() => {});
+    wc.on('did-finish-load', sampleBg);
     wc.on('did-start-loading', () => { tab.loading = true; this.push(); });
     wc.on('did-stop-loading', () => { tab.loading = false; this.push(); });
     const nav = (url) => { tab.url = url; recordVisit(url, tab.title); if (tab.kind === 'today') this.saveToday(); this.push(); };
@@ -571,6 +578,7 @@ export class TabManager {
       today: this.today.map((t) => t.dto()),
       activeId: a?.id ?? null,
       url: a?.url || '',
+      theme: a?.themeColor || a?.pageBg || '',
       canGoBack: !!h?.canGoBack(), canGoForward: !!h?.canGoForward(),
       downloads: this.downloads?.summary() || null,
       downloadsActive: !!this.downloadsTab && a === this.downloadsTab,

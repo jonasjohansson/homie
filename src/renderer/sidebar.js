@@ -3,13 +3,15 @@ const groupsEl = $('#groups'), todayEl = $('#today'), todaySection = $('#todaySe
 let S = { groups: [], today: [], activeId: null, url: '', downloads: null };
 let renaming = null;
 
-const FOLDER = '<svg width="16" height="14" viewBox="0 0 16 14"><path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.2l1.6 1.6h6.2A1.5 1.5 0 0 1 15 4.1v7.4a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 11.5z" fill="currentColor" opacity=".85"/></svg>';
+const FOLDER = '<svg width="18" height="16" viewBox="0 0 18 16"><path d="M1 3.2A1.7 1.7 0 0 1 2.7 1.5h3.9l1.9 1.9h6.8A1.7 1.7 0 0 1 17 5.1v7.7a1.7 1.7 0 0 1-1.7 1.7H2.7A1.7 1.7 0 0 1 1 12.8z" fill="currentColor"/><path d="M1 6.2h16v6.6a1.7 1.7 0 0 1-1.7 1.7H2.7A1.7 1.7 0 0 1 1 12.8z" fill="#fff" opacity=".18"/></svg>';
 
 homie.on('state', (s) => {
   S = s;
   const r = document.documentElement.style;
   r.setProperty('--w', s.sidebarWidth + 'px');
-  if (s.tint) r.setProperty('--tint', s.tint); else r.removeProperty('--tint');
+  const tint = (s.tint || '').split(/\s+/).filter(Boolean);
+  if (tint.length) { r.setProperty('--tint-top', tint[0]); r.setProperty('--tint-bottom', tint[1] || tint[0]); } else { r.removeProperty('--tint-top'); r.removeProperty('--tint-bottom'); }
+  if (s.theme) r.setProperty('--card', s.theme); else r.removeProperty('--card');
   document.body.classList.toggle('sidebar-hidden', !!s.sidebarHidden);
   render();
 });

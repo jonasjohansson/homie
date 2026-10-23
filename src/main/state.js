@@ -8,7 +8,7 @@ const file = () => path.join(app.getPath('userData'), 'state.json');
 
 const defaults = {
   bounds: { width: 1280, height: 860 },
-  sidebarWidth: 240,
+  sidebarWidth: 202,
   today: [],          // [{ url, title }]
   activeUrl: null,
 };
