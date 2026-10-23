@@ -30,14 +30,15 @@ app.whenReady().then(async () => {
   const ua = `Mozilla/5.0 (${process.platform === 'darwin' ? 'Macintosh; Intel Mac OS X 10_15_7' : process.platform === 'win32' ? 'Windows NT 10.0; Win64; x64' : 'X11; Linux x86_64'}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36`;
   ses.setUserAgent(ua);
   app.userAgentFallback = ua;
-  const brands = `"Chromium";v="${major}", "Google Chrome";v="${major}", "Not=A?Brand";v="24"`;
-  const fullBrands = `"Chromium";v="${process.versions.chrome}", "Google Chrome";v="${process.versions.chrome}", "Not=A?Brand";v="24.0.0.0"`;
+  // Chrome's own order: Not-A-Brand token as Chromium wrote it, then Chromium, then Google Chrome.
+  // The same list is given to the page's navigator.userAgentData (tabs.js CHROME_SHIM), so headers and JS agree.
+  const addChrome = (v, full) => v.includes('Google Chrome') ? v : v.replace(/("Chromium";v="[^"]+")/, `$1, "Google Chrome";v="${full ? process.versions.chrome : major}"`);
   ses.webRequest.onBeforeSendHeaders((details, cb) => {
     const h = details.requestHeaders;
     for (const k of Object.keys(h)) {
       const lk = k.toLowerCase();
-      if (lk === 'sec-ch-ua') h[k] = brands;
-      else if (lk === 'sec-ch-ua-full-version-list') h[k] = fullBrands;
+      if (lk === 'sec-ch-ua') h[k] = addChrome(h[k], false);
+      else if (lk === 'sec-ch-ua-full-version-list') h[k] = addChrome(h[k], true);
     }
     cb({ requestHeaders: h });
   });
