@@ -13,7 +13,7 @@ export default {
           LSItemContentTypes: ['public.html', 'public.xhtml'] },
       ],
     },
-    ignore: [/^\/out/, /^\/scripts/, /^\/build\/icon\.png$/, /\.md$/, /^\/\.claude/, /^\/assets\/.*\.psd$/],
+    ignore: [/^\/out/, /^\/dist/, /^\/docs/, /^\/scripts/, /^\/build\/icon\.png$/, /\.md$/, /^\/\.claude/, /^\/assets\/.*\.psd$/],
   },
   makers: [],
 };

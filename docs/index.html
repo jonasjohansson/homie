@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Homie</title>
+<meta name="description" content="A sidebar browser for the Mac. Pinned sites in one YAML file, the rest of the web in a Today list.">
+<link rel="icon" href="icon.png">
+<style>
+  :root {
+    --bg: #ffffff; --fg: #111114; --muted: #6b6b76; --rule: #e4e4e8;
+    --unit: 8px; --measure: 560px; --font: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0e0e14; --fg: #f1f1f3; --muted: #9a9aa6; --rule: #26262e; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--bg); color: var(--fg); font: 16px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+  body { max-width: var(--measure); margin: 0 auto; padding: calc(var(--unit) * 10) calc(var(--unit) * 3) calc(var(--unit) * 12); }
+  header { display: grid; grid-template-columns: 64px 1fr; gap: calc(var(--unit) * 3); align-items: center; }
+  header img { width: 64px; height: 64px; display: block; }
+  h1 { font-size: 24px; font-weight: 600; line-height: 1.2; }
+  header p { color: var(--muted); }
+  section { margin-top: calc(var(--unit) * 6); padding-top: calc(var(--unit) * 3); border-top: 1px solid var(--rule); }
+  h2 { font-size: 13px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); margin-bottom: calc(var(--unit) * 2); }
+  ul { list-style: none; }
+  li { padding: calc(var(--unit) * 1) 0; }
+  .downloads li { display: grid; grid-template-columns: 1fr auto; gap: calc(var(--unit) * 2); align-items: baseline; padding: calc(var(--unit) * 1.5) 0; border-bottom: 1px solid var(--rule); }
+  .downloads li:last-child { border-bottom: 0; }
+  .downloads small { color: var(--muted); }
+  a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+  p + p { margin-top: calc(var(--unit) * 2); }
+  code { font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+</style>
+</head>
+<body>
+<header>
+  <img src="icon.png" alt="" width="64" height="64">
+  <div>
+    <h1>Homie</h1>
+    <p>A sidebar browser for the Mac.</p>
+  </div>
+</header>
+
+<section class="downloads">
+  <h2>Download</h2>
+  <ul>
+    <li><a href="https://github.com/jonasjohansson/homie/releases/latest/download/Homie-mac-arm64.zip">Homie for Apple silicon</a><small>macOS 12 or later</small></li>
+    <li><a href="https://github.com/jonasjohansson/homie/releases/latest/download/Homie-mac-x64.zip">Homie for Intel</a><small>macOS 12 or later</small></li>
+  </ul>
+  <p style="margin-top: 16px; color: var(--muted);">Unzip, move Homie to Applications, open it. All versions are on the <a href="https://github.com/jonasjohansson/homie/releases">releases page</a>.</p>
+</section>
+
+<section>
+  <h2>What it is</h2>
+  <p>Pinned sites live in one <code>bookmarks.yml</code> you can keep in git and share between your Macs. Everything else goes in a Today list that clears itself. Built on Chromium, so sign-ins, passwords and notifications work as they do in Chrome.</p>
+</section>
+
+<section>
+  <h2>What it does</h2>
+  <ul>
+    <li>Pinned sites in folders: drag to reorder, rename, give a folder an emoji</li>
+    <li>Split view, up to four panes side by side</li>
+    <li>A Today list for the tabs you do not want to keep</li>
+    <li>Chrome extensions from the Web Store</li>
+    <li>One bookmarks file for all your Macs</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Source</h2>
+  <p><a href="https://github.com/jonasjohansson/homie">github.com/jonasjohansson/homie</a>, MIT. Made by <a href="https://jonasjohansson.se/">Jonas Johansson</a>.</p>
+</section>
+</body>
+</html>
