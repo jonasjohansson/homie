@@ -47,8 +47,14 @@ else
   built="out/Homie-darwin-$(uname -m | sed 's/x86_64/x64/')/Homie.app"
   [ -d "$built" ] || { say failed "no $built"; exit 1; }
   codesign --force --deep --sign - "$built" >/dev/null 2>&1 || true
+  # swap only once Homie has quit: a page can hold the quit (an unsent form), and the
+  # running app must not lose its files under it
   running=0; pgrep -xq Homie && running=1
-  [ $running = 1 ] && osascript -e 'tell application "Homie" to quit' >/dev/null 2>&1 && sleep 2
+  if [ $running = 1 ]; then
+    osascript -e 'tell application "Homie" to quit' >/dev/null 2>&1
+    for _ in $(seq 1 40); do pgrep -xq Homie || break; sleep 0.5; done
+    pgrep -xq Homie && { say skipped "Homie did not quit (a page may be holding it); quit it and run install.sh again"; exit 1; }
+  fi
   mkdir -p "$HOME/Applications"
   rm -rf "$app"; ditto "$built" "$app"
   say built "$app"
