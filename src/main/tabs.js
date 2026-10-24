@@ -336,10 +336,7 @@ export class TabManager {
     wc.on('focus', () => { if (this.active !== tab && this.split?.panes.includes(tab) && this.visiblePanes().includes(tab)) this.activate(tab.id); });   // a click in a pane focuses it
     wc.on('page-favicon-updated', (_e, icons) => { if (icons?.length) { tab.favicon = icons[0]; if (tab.kind === 'today') this.saveToday(); else if (tab.kind === 'pinned' && !tab.away) { state.favicons = { ...(state.favicons || {}), [tab.pinnedUrl]: icons[0] }; saveState(); } this.push(); } });
     wc.on('did-change-theme-color', (_e, color) => { tab.themeColor = color || ''; this.push(); });
-    // no theme-color: paint the toolbar strip in the page's own background, as Arc does
-    const sampleBg = () => wc.executeJavaScript(`(() => { const c = getComputedStyle(document.body).backgroundColor; const h = getComputedStyle(document.documentElement).backgroundColor; return [c, h]; })()`, true)
-      .then(([c, h]) => { const pick = [c, h].find((v) => v && !/rgba\(.*,\s*0\)/.test(v) && v !== 'transparent'); tab.pageBg = pick || ''; this.push(); }).catch(() => {});
-    wc.on('did-finish-load', sampleBg);
+    // the toolbar strip's colour comes from the preload's sampler (homie:bg); theme-color only until it reports
     wc.on('did-start-loading', () => { tab.loading = true; this.push(); });
     wc.on('did-stop-loading', () => { tab.loading = false; this.push(); });
     const nav = (url) => { tab.url = url; recordVisit(url, tab.title); if (tab.kind === 'today') this.saveToday(); this.push(); };
@@ -738,10 +735,10 @@ export class TabManager {
       groups: this.groups.map((g) => ({ name: g.name, icon: g.icon || '', collapsed: this.collapsed(g.name), tabs: g.tabs.map((t) => t.dto()) })),
       today: this.today.map((t) => t.dto()),
       activeId: a?.id ?? null,
-      panes: (this.fullscreenTab ? [] : this.visiblePanes()).map((t, i) => { const r = (this.rects || [])[i]; const h = t.wc && !t.wc.isDestroyed() ? t.wc.navigationHistory : null; return r ? { id: t.id, x: r.x, y: r.y - TOOLBAR, w: r.width, h: r.height + TOOLBAR, url: t.url, theme: t.themeColor || t.pageBg || '', canGoBack: !!h?.canGoBack(), canGoForward: !!h?.canGoForward(), focused: t === a } : null; }).filter(Boolean),
+      panes: (this.fullscreenTab ? [] : this.visiblePanes()).map((t, i) => { const r = (this.rects || [])[i]; const h = t.wc && !t.wc.isDestroyed() ? t.wc.navigationHistory : null; return r ? { id: t.id, x: r.x, y: r.y - TOOLBAR, w: r.width, h: r.height + TOOLBAR, url: t.url, theme: t.pageBg || t.themeColor || '', canGoBack: !!h?.canGoBack(), canGoForward: !!h?.canGoForward(), focused: t === a } : null; }).filter(Boolean),
       splitIds: this.split ? this.split.panes.map((t) => t.id) : [],
       url: a?.url || '',
-      theme: a?.themeColor || a?.pageBg || '',
+      theme: a?.pageBg || a?.themeColor || '',
       canGoBack: !!h?.canGoBack(), canGoForward: !!h?.canGoForward(),
       downloads: this.downloads?.summary() || null,
       downloadsActive: !!this.downloadsTab && a === this.downloadsTab,
@@ -818,6 +815,7 @@ export class TabManager {
     ipcMain.on('palette-size', (e, h) => { if (fromUI(e)) { this.paletteHeight = Math.max(48, Math.min(600, Math.round(h))); this.layout(); } });
     ipcMain.on('focus-page', (e) => fromUI(e) && this.active?.wc?.focus());
     ipcMain.on('homie:notification', (e, payload) => this.notify(e.sender, payload || {}));
+    ipcMain.on('homie:bg', (e, color) => { const t = [...this.tabs.values()].find((x) => x.wc === e.sender); if (!t || t.pageBg === color) return; t.pageBg = typeof color === 'string' ? color : ''; this.push(); });
     // Arc's canonical split gesture: a sidebar row dropped on the left or right half of a page
     ipcMain.on('row-drag', (e, phase, id) => {
       if (!fromUI(e)) return;

@@ -65,3 +65,34 @@ ipcRenderer.on('homie:drag', (_e, phase) => {
     drop.box.remove(); drop = null;
   }
 });
+
+// The toolbar strip is painted in the page's own colour, as Arc does. theme-color lies on some
+// pages (Gmail's dark theme keeps a light one), so sample what is actually rendered along the top
+// edge of the viewport and report it whenever it changes.
+const opaque = (v) => v && v !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(v);
+function topColor() {
+  const w = window.innerWidth, pts = [0.1, 0.3, 0.5, 0.7, 0.9].map((f) => Math.round(w * f));
+  const tally = new Map();
+  for (const x of pts) {
+    let el = document.elementFromPoint(x, 2), col = '';
+    while (el && el !== document.documentElement && !col) { const c = getComputedStyle(el).backgroundColor; if (opaque(c)) col = c; el = el.parentElement; }
+    if (!col) col = [document.body, document.documentElement].map((n) => n && getComputedStyle(n).backgroundColor).find(opaque) || '';
+    if (col) tally.set(col, (tally.get(col) || 0) + 1);
+  }
+  return [...tally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+}
+let lastBg = null, bgTimer = null;
+function reportBg() { try { const c = topColor(); if (c !== lastBg) { lastBg = c; ipcRenderer.send('homie:bg', c); } } catch {} }
+function scheduleBg(ms = 120) { clearTimeout(bgTimer); bgTimer = setTimeout(reportBg, ms); }
+function watchBg() {
+  reportBg();
+  for (const ms of [400, 1200, 3000, 6000]) setTimeout(reportBg, ms);   // themes applied by late scripts
+  const mo = new MutationObserver(() => scheduleBg());
+  for (const n of [document.documentElement, document.body]) if (n) mo.observe(n, { attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'theme'], childList: true });
+  if (document.head) mo.observe(document.head, { childList: true, subtree: true, attributes: true, attributeFilter: ['content', 'media'] });
+  window.addEventListener('resize', () => scheduleBg(200));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => scheduleBg(300));
+  document.addEventListener('visibilitychange', () => scheduleBg(50));
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchBg); else watchBg();
+window.addEventListener('load', () => scheduleBg(60));
