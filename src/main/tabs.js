@@ -53,6 +53,21 @@ const NOTIFICATION_SHIM = `(function () {
   window.Notification = HomieNotification;
 })();`;
 
+// A denied window.open (Homie opens it as a tab instead) hands the page null, and pages read that as
+// a blocked pop-up ("Grrr! A pop-up blocker may be..."). Give them an inert window in its place.
+const OPEN_SHIM = `(function () {
+  if (window.__homieOpen) return; window.__homieOpen = true;
+  const open = window.open;
+  window.open = function () {
+    const w = open.apply(this, arguments);
+    if (w) return w;
+    const noop = () => {};
+    return { closed: false, opener: window, close() { this.closed = true; }, focus: noop, blur: noop, postMessage: noop,
+      location: { href: '', assign: noop, replace: noop },
+      document: { open: noop, write: noop, writeln: noop, close: noop } };
+  };
+})();`;
+
 // What a page shows, read in an isolated world so the page's own scripts cannot fake it, and what
 // a terminal shows: its last 400 lines. For agents (read_page) and the ask window.
 const READ_PAGE = `(() => ({ title: document.title, url: location.href, selection: String(getSelection() || '').trim(), text: document.body ? document.body.innerText : '' }))()`;
@@ -404,7 +419,7 @@ export class TabManager {
     const nav = (url) => { tab.url = url; recordVisit(url, tab.title); if (tab.kind === 'today') this.saveToday(); this.push(); };
     wc.on('did-navigate', (_e, url) => nav(url));
     wc.on('did-navigate-in-page', (_e, url, isMainFrame) => { if (isMainFrame) nav(url); });
-    wc.on('dom-ready', () => { wc.executeJavaScript(NOTIFICATION_SHIM, true).catch(() => {}); });
+    wc.on('dom-ready', () => { wc.executeJavaScript(NOTIFICATION_SHIM, true).catch(() => {}); wc.executeJavaScript(OPEN_SHIM, true).catch(() => {}); });
     wc.on('context-menu', (_e, params) => this.pageContextMenu(tab, params));
     wc.on('render-process-gone', (_e, d) => { if (d.reason !== 'clean-exit') { tab.title = 'Crashed: ' + tab.title; this.push(); } });
     wc.on('enter-html-full-screen', () => { this.fullscreenTab = tab; this.layout(); });
