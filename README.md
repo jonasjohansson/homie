@@ -142,7 +142,8 @@ when the page unloads. Opening it again continues the conversation.
 
 Each bookmark has a folder, `~/Library/Application Support/Homie/Agents/<name>`,
 with a CLAUDE.md for its own rules ("Gmail: drafts only, never send"). Beside the
-folders, `Agents/CLAUDE.md` holds rules for all of them and `Agents/settings.json`
+folders, `Agents/CLAUDE.md` holds rules for all of them, `Agents/memory` (a folder,
+or a link to one) becomes their shared Claude memory when it exists, and `Agents/settings.json`
 their permissions: by default no shell and no file edits, and Claude asks before
 every action, whatever your own Claude Code defaults are. It reads its page with
 Homie's tools under a key that reaches that tab alone, so a page or an email cannot
