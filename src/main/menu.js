@@ -1,5 +1,6 @@
 import { app, Menu, shell, clipboard, dialog } from 'electron';
 import { openInChrome } from './tabs.js';
+import { setOpenAtLogin } from './state.js';
 
 export function buildMenu(mgr, bookmarks) {
   const wc = () => mgr.active?.wc;
@@ -10,6 +11,7 @@ export function buildMenu(mgr, bookmarks) {
       { role: 'about' },
       { type: 'separator' },
       { label: 'Make Homie the Default Browser', click: () => { app.setAsDefaultProtocolClient('http'); app.setAsDefaultProtocolClient('https'); } },
+      { label: 'Open at Login', type: 'checkbox', enabled: app.isPackaged, checked: app.isPackaged && app.getLoginItemSettings().openAtLogin, click: (mi) => setOpenAtLogin(mi.checked) },
       { label: 'Chrome Web Store', click: () => mgr.open('https://chromewebstore.google.com/') },
       { label: 'Open bookmarks.yml', accelerator: 'Cmd+,', click: () => shell.openPath(bookmarks.realPath) },
       { type: 'separator' },

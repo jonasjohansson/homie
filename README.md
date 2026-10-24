@@ -17,7 +17,9 @@ bookmarks file and adds Homie to Login Items. `scripts/install.sh --check` repor
 what is out of date. `skynet/config/install.sh` calls it on every Mac. Needs node 20+.
 
 Make it the default browser from the Homie menu; links from other apps then open
-as Today tabs.
+as Today tabs. Homie opens at login from its first launch; Open at Login in the
+Homie menu turns that off, and `open -a Homie --args --login-item=off` does the
+same from a shell, without opening a window.
 
 To work on Homie beside the installed one, `HOMIE_USER_DATA=/tmp/homie-dev npm start`
 runs a second profile; its window opens behind the one you are in.

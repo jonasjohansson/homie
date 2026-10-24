@@ -1,5 +1,5 @@
 import { app, session, desktopCapturer } from 'electron';
-import { loadState, saveState } from './state.js';
+import { state, loadState, saveState, setOpenAtLogin } from './state.js';
 import { Bookmarks } from './bookmarks.js';
 import { TabManager } from './tabs.js';
 import { buildMenu } from './menu.js';
@@ -13,11 +13,16 @@ if (process.env.HOMIE_USER_DATA) app.setPath('userData', process.env.HOMIE_USER_
 if (!app.requestSingleInstanceLock()) app.quit();
 
 let mgr = null, agents = null;
+// `open -a Homie --args --login-item=off` (or =on) sets Open at Login on this Mac, with no window
+const loginFlag = (argv) => argv.find((a) => /^--login-item=(on|off)$/.test(a));
 const pending = [];
 const openUrl = (url) => { if (mgr?.win) { mgr.focus(); mgr.open(url); } else pending.push(url); };
 
 app.on('open-url', (e, url) => { e.preventDefault(); openUrl(url); });
-app.on('second-instance', (_e, argv) => { const u = argv.find((a) => /^https?:\/\//.test(a)); if (u) openUrl(u); else mgr?.focus(); });
+app.on('second-instance', (_e, argv) => {
+  const f = loginFlag(argv); if (f) return setOpenAtLogin(f.endsWith('=on'));
+  const u = argv.find((a) => /^https?:\/\//.test(a)); if (u) openUrl(u); else mgr?.focus();
+});
 app.on('before-quit', () => { app.quitting = true; saveState(true); mgr?.terminals?.killAll(); });
 app.on('activate', () => mgr?.focus());
 app.on('window-all-closed', () => {});
@@ -27,6 +32,8 @@ const ALLOWED = new Set(['notifications', 'media', 'mediaKeySystem', 'fullscreen
 
 app.whenReady().then(async () => {
   loadState();
+  const f = loginFlag(process.argv);
+  if (f) { setOpenAtLogin(f.endsWith('=on')); app.quit(); return; }
   const ses = session.fromPartition('persist:homie');
   // Look like Chrome to Google's sign-in ("this browser or app may not be secure"): the
   // reduced UA Chrome itself sends, and client-hint brands that include Google Chrome.
@@ -53,8 +60,9 @@ app.whenReady().then(async () => {
   }, { useSystemPicker: true });
   ses.setSpellCheckerLanguages(['en-US', 'sv']);
 
-  // start at login from the app itself; install.sh's System Events call hangs over ssh
-  if (app.isPackaged && !app.getLoginItemSettings().openAtLogin) app.setLoginItemSettings({ openAtLogin: true });
+  // start at login from the app itself (install.sh's System Events call hangs over ssh), on the
+  // first launch only: after that it is the Homie menu's Open at Login, or System Settings
+  if (app.isPackaged && state.openAtLogin == null) setOpenAtLogin(true);
 
   const extensions = await setupExtensions(ses, () => mgr);
   const bookmarks = new Bookmarks(() => { mgr?.syncBookmarks(); agents?.sync(); });

@@ -14,6 +14,7 @@ const defaults = {
   split: null,        // { urls, factors, focus }
   collapsed: {},      // folded folders by name
   favicons: {},       // pinned url -> favicon url, so unloaded pins show their icon at launch
+  openAtLogin: null,  // null until the first launch has set it; then the Homie menu or System Settings decide
 };
 
 export const state = { ...defaults };
@@ -22,6 +23,13 @@ let timer = null;
 export function loadState() {
   try { Object.assign(state, defaults, JSON.parse(fs.readFileSync(file(), 'utf8'))); } catch (e) { if (e.code !== 'ENOENT') console.error('state.json unreadable, starting fresh:', e.message); }
   return state;
+}
+
+// Open at Login on this Mac. Only a packaged app registers, or the login item would be Electron.
+export function setOpenAtLogin(on) {
+  if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: on });
+  state.openAtLogin = on;
+  saveState(true);
 }
 
 export function saveState(now = false) {
