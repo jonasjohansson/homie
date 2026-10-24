@@ -57,7 +57,7 @@ machine. Extensions install from the Chrome Web Store (Homie menu) and live in
 | Cmd+R, Cmd+Shift+R | reload, back to the pinned page |
 | Cmd+[ Cmd+] | back, forward |
 | Cmd+= Cmd+- Cmd+0 | zoom, remembered per site |
-| Cmd+M | mute the tab |
+| Ctrl+M | mute the tab (Cmd+M minimizes, as everywhere on the Mac) |
 | Cmd+Shift+C | copy the page address |
 | Cmd+Shift+O | open the page in Chrome |
 | Cmd+Shift+S | hide or show the sidebar (drag its edge to resize) |

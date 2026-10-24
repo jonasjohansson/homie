@@ -72,7 +72,7 @@ export function buildMenu(mgr, bookmarks) {
       { label: 'Previous Tab', accelerator: 'Ctrl+Shift+Tab', click: () => mgr.step(-1) },
       { label: 'Next Tab', accelerator: 'Cmd+Option+Right', visible: false, click: () => mgr.step(1) },
       { label: 'Previous Tab', accelerator: 'Cmd+Option+Left', visible: false, click: () => mgr.step(-1) },
-      { label: 'Mute Tab', accelerator: 'Cmd+M', click: () => { const a = t(); if (a) mgr.setMuted(a, !a.muted); } },
+      { label: 'Mute Tab', accelerator: 'Ctrl+M', click: () => { const a = t(); if (a) mgr.setMuted(a, !a.muted); } },   // Firefox's key; Cmd+M is the Window menu's Minimize
       { type: 'separator' },
       // Arc's split keys
       { label: 'Add Split View', accelerator: 'Ctrl+Shift+=', click: () => mgr.showPalette('split') },
