@@ -33,7 +33,10 @@ else
   say note "no BUTLER_API_KEY in $skynet/.secrets.env (or no access to $target): zips built, nothing pushed"
 fi
 
-# GitHub release: one per version, assets replaced when rerun
-if gh release view "v$version" >/dev/null 2>&1; then gh release upload "v$version" dist/Homie-mac-*.zip --clobber >/dev/null
-else gh release create "v$version" dist/Homie-mac-*.zip --title "Homie $version" --notes "Signed macOS builds. Unzip, move Homie to Applications, open it." >/dev/null; fi
+# GitHub release: one per version, assets replaced when rerun. The 130 MB uploads time out
+# now and then (HTTP 408), so each is retried on its own.
+gh release view "v$version" >/dev/null 2>&1 || gh release create "v$version" --title "Homie $version" --notes "Signed and notarized macOS builds. Unzip, move Homie to Applications, open it." >/dev/null
+for arch in $archs; do
+  for try in 1 2 3; do gh release upload "v$version" "dist/Homie-mac-$arch.zip" --clobber >/dev/null 2>&1 && break; say retry "upload of Homie-mac-$arch.zip ($try)"; sleep 5; done
+done
 say released "https://github.com/jonasjohansson/homie/releases/tag/v$version"
