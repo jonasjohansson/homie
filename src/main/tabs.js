@@ -49,6 +49,12 @@ const NOTIFICATION_SHIM = `(function () {
   window.Notification = HomieNotification;
 })();`;
 
+// What a page shows, read in an isolated world so the page's own scripts cannot fake it, and what
+// a terminal shows: its last 400 lines. For agents (read_page) and the ask window.
+const READ_PAGE = `(() => ({ title: document.title, url: location.href, selection: String(getSelection() || '').trim(), text: document.body ? document.body.innerText : '' }))()`;
+const READ_TERMINAL = `(() => { const b = term.buffer.active, out = []; for (let i = Math.max(0, b.length - 400); i < b.length; i++) out.push(b.getLine(i)?.translateToString(true) ?? ''); return { selection: term.getSelection(), text: out.join('\\n').replace(/\\s+$/, '') }; })()`;
+const UNREAD_SETTLE_MS = 20000;   // the counts a page shows while it loads are where it starts, not news
+
 let nextId = 1;
 
 export class Tab {
@@ -69,6 +75,8 @@ export class Tab {
     this.notifications = new Map();
     this.page = opts.page || null;        // internal pages: a file under src/renderer
     this.run = opts.run || '';            // a pinned terminal's command, from bookmarks.yml
+    this.react = opts.react || '';        // a pinned tab's rule for when its unread count goes up
+    this.watchFrom = 0;                   // unread rises count from here (set when the view is made)
     if (this.terminal) this.favicon = TERMINAL_ICON;
   }
 
@@ -104,7 +112,10 @@ export class Tab {
     if (m) count = Number(m[1]);
     else if (/^[*!•●]/.test(t.trim())) count = 1;
     if (!this.showsBadge) count = 0;
-    if (count !== this.unread) { this.unread = count; this.mgr.badgesChanged(); }
+    if (count !== this.unread) {
+      const was = this.unread; this.unread = count; this.mgr.badgesChanged();
+      if (count > was && Date.now() > this.watchFrom) this.mgr.asker?.unreadRose(this, was, count);
+    }
   }
 }
 
@@ -166,6 +177,8 @@ export class TabManager {
     this.win.contentView.addChildView(this.palette);
     this.palette.webContents.loadFile(path.join(__dirname, '..', 'renderer', 'palette.html'));
     this.palette.webContents.on('context-menu', (e) => e.preventDefault());
+    // an answer stays up while you read and select in it; a click elsewhere in Homie puts it away
+    this.palette.webContents.on('blur', () => { if (this.paletteMode === 'ask' && this.palette.getVisible?.() !== false && this.win?.isFocused()) this.hidePalette(); });
 
     this.win.on('resize', () => { this.layout(); this.saveBounds(); this.push(); });   // the chrome's cards follow the pane rects
     this.win.on('move', () => this.saveBounds());
@@ -205,7 +218,8 @@ export class TabManager {
     const focus = Math.max(0, panes.indexOf(this.active));
     const pr = rects[focus] || card;
     const pw = Math.min(PALETTE_W, pr.width - 40);
-    this.palette.setBounds({ x: pr.x + Math.round((pr.width - pw) / 2), y: pr.y + Math.round(pr.height * 0.33) - 24, width: pw, height: this.paletteHeight });
+    const py = Math.max(pr.y + 20, Math.min(pr.y + Math.round(pr.height * 0.33) - 24, pr.y + pr.height - this.paletteHeight - 20));   // a tall bar (an answer) stays inside the pane
+    this.palette.setBounds({ x: pr.x + Math.round((pr.width - pw) / 2), y: py, width: pw, height: this.paletteHeight });
     this.rects = rects;
     return rects[focus] || card;
   }
@@ -304,6 +318,7 @@ export class TabManager {
   raisePalette() { this.win.contentView.removeChildView(this.palette); this.win.contentView.addChildView(this.palette); }
 
   showPalette(mode, arg) {
+    this.paletteMode = mode;
     this.focus();
     this.layout();
     this.palette.setVisible(true);
@@ -312,7 +327,7 @@ export class TabManager {
     this.palette.webContents.focus();
   }
 
-  hidePalette() { this.palette.setVisible(false); this.active?.wc?.focus(); }
+  hidePalette() { this.palette.setVisible(false); this.asker?.cancel(); this.active?.wc?.focus(); }
 
   focus() { if (!this.win) return; if (this.win.isMinimized()) this.win.restore(); this.win.show(); this.win.focus(); }
 
@@ -347,6 +362,7 @@ export class TabManager {
       wc.setWindowOpenHandler(() => ({ action: 'deny' }));
       return view;
     }
+    tab.watchFrom = Date.now() + UNREAD_SETTLE_MS;
     this.addingTab = true;
     try { this.extensions?.addTab(wc, this.win); } catch (e) { console.error('extensions.addTab', e.message); }
     this.addingTab = false;
@@ -408,12 +424,12 @@ export class TabManager {
         let t = old.get(spec.url);
         if (t) {
           old.delete(spec.url);
-          t.label = spec.label; t.showsBadge = spec.badge; t.run = spec.run;
+          t.label = spec.label; t.showsBadge = spec.badge; t.run = spec.run; t.react = spec.react;
           if (t.muted !== spec.muted) { t.muted = spec.muted; t.wc?.setAudioMuted(spec.muted); }
           if (!t.title) t.title = spec.label;
           if (!t.terminal) t.titleChanged(t.title);   // a terminal's badge is its bell, not a count in its title
         } else {
-          t = new Tab(this, { kind: 'pinned', url: spec.url, label: spec.label, muted: spec.muted, badge: spec.badge, run: spec.run, favicon: (state.favicons || {})[spec.url] || '' });
+          t = new Tab(this, { kind: 'pinned', url: spec.url, label: spec.label, muted: spec.muted, badge: spec.badge, run: spec.run, react: spec.react, favicon: (state.favicons || {})[spec.url] || '' });
           this.tabs.set(t.id, t);
           setTimeout(() => { if (this.tabs.has(t.id)) t.load(); }, initial ? delay : 0);
           delay += STAGGER_MS;
@@ -641,6 +657,13 @@ export class TabManager {
     return out;
   }
 
+  async pageContent(t) {
+    if (!t.loaded) throw new Error(`tab ${t.id} is not loaded`);
+    if (t.terminal) { const r = await t.wc.executeJavaScript(READ_TERMINAL); return { title: t.title, url: t.url, selection: r?.selection || '', text: String(r?.text || '') }; }
+    const r = await t.wc.executeJavaScriptInIsolatedWorld(1001, [{ code: READ_PAGE }]);
+    return { title: r?.title || t.title, url: r?.url || t.url, selection: r?.selection || '', text: String(r?.text || '') };
+  }
+
   // --- notifications ----------------------------------------------------------------
   notify(wc, { title, body, tag }) {
     const tab = [...this.tabs.values()].find((t) => t.wc === wc);
@@ -790,6 +813,7 @@ export class TabManager {
       sidebarWidth: state.sidebarWidth,
       sidebarHidden: this.sidebarHidden,
       tint: this.bookmarks.tint || '',
+      askModel: this.bookmarks.ask || 'sonnet',
     };
   }
 
@@ -858,6 +882,8 @@ export class TabManager {
     ipcMain.on('toggle-sidebar', (e) => fromUI(e) && this.toggleSidebar());
     ipcMain.on('palette', (e, mode, arg) => fromUI(e) && this.showPalette(mode, arg));
     ipcMain.on('palette-close', (e) => fromUI(e) && this.hidePalette());
+    ipcMain.on('ask', (e, id, question, history) => { if (fromUI(e) && question) this.asker?.ask(id, String(question), history, (ch, ...a) => { if (!this.palette.webContents.isDestroyed()) this.palette.webContents.send(ch, ...a); }); });
+    ipcMain.on('ask-cancel', (e) => fromUI(e) && this.asker?.cancel());
     ipcMain.on('palette-size', (e, h) => { if (fromUI(e)) { this.paletteHeight = Math.max(48, Math.min(600, Math.round(h))); this.layout(); } });
     ipcMain.on('focus-page', (e) => fromUI(e) && this.active?.wc?.focus());
     ipcMain.on('homie:notification', (e, payload) => this.notify(e.sender, payload || {}));

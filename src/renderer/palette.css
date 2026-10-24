@@ -20,3 +20,12 @@ body { font: 15px/1.3 var(--font); color: var(--fg); background: var(--bg); -web
 #suggest li.sel { background: var(--active); }
 #suggest .k { color: var(--fg-muted); font-size: 12px; text-align: center; }
 body.find #omni { font-size: 15px; }
+#answer { border-top: 1px solid var(--line); padding: 4px 16px 14px; overflow-y: auto; max-height: calc(100vh - var(--input)); font-size: 14px; line-height: 1.5; user-select: text; cursor: auto; }
+#answer .q { color: var(--fg-muted); padding-top: 10px; }
+#answer .a { padding-top: 4px; }
+#answer .a.wait, #answer .a.err { color: var(--fg-muted); }
+#answer p + p, #answer p + ul, #answer ul + p, #answer pre { margin-top: 8px; }
+#answer ul { padding-left: 18px; }
+#answer code, #answer pre { font: 12.5px/1.45 ui-monospace, "SF Mono", Menlo, monospace; }
+#answer pre { white-space: pre-wrap; padding: 8px 10px; border-radius: 6px; background: var(--active); }
+#answer .link { text-decoration: underline; cursor: pointer; }

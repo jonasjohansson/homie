@@ -10,6 +10,8 @@ import YAML from 'yaml';
 
 const STARTER = `# Homie — the pinned sidebar. Per group: name, icon (an emoji). Per tab: url (required), label, muted, badge (default true).
 # A url of terminal:~/some/folder is a shell in that folder; run: types a command there, like run: claude
+# react: on a tab is a rule Claude follows when its unread count goes up, shown as a notification
+# ask: haiku                # the model for Cmd+J and react (sonnet when left out)
 # tint: "#0d0d1f #170e1f"   # optional window colour, one or two (top bottom)
 # agents: true              # let agents on this Mac see and drive the tabs (MCP on 127.0.0.1, see the README)
 groups:
@@ -28,6 +30,7 @@ export class Bookmarks {
     this.groups = [];
     this.tint = '';
     this.agents = false;
+    this.ask = '';
     if (!fs.existsSync(this.path)) {
       fs.mkdirSync(path.dirname(this.path), { recursive: true });
       fs.writeFileSync(this.path, STARTER);
@@ -49,12 +52,13 @@ export class Bookmarks {
         let label = t.label;
         if (!label && /^terminal:/i.test(t.url)) label = 'Terminal';
         if (!label) { try { label = new URL(t.url).hostname.replace(/^www\./, ''); } catch { label = t.url; } }
-        tabs.push({ url: String(t.url), label: String(label), muted: !!t.muted, badge: t.badge !== false, run: typeof t.run === 'string' ? t.run : '' });
+        tabs.push({ url: String(t.url), label: String(label), muted: !!t.muted, badge: t.badge !== false, run: typeof t.run === 'string' ? t.run : '', react: typeof t.react === 'string' ? t.react.trim().slice(0, 500) : '' });
       }
       groups.push({ name: String(g.name || ''), icon: typeof g.icon === 'string' ? g.icon.trim().slice(0, 4) : '', tabs });
     }
     this.groups = groups;
     this.agents = doc.agents === true;
+    this.ask = typeof doc.ask === 'string' && /^[a-z0-9][\w.-]*$/i.test(doc.ask.trim()) ? doc.ask.trim() : '';   // a model name for claude --model, never a flag
     this.tint = typeof doc.tint === 'string' && /^#[0-9a-f]{6}(\s+#[0-9a-f]{6})?$/i.test(doc.tint.trim()) ? doc.tint.trim() : '';   // one colour, or two for a top-to-bottom gradient
     return true;
   }

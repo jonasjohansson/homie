@@ -18,6 +18,7 @@ const BATCH_MS = 4;                   // output is sent to the page in batches, 
 // what the program that launched Homie left in its environment (a terminal app, an agent session)
 // belongs to that program; the login shell sets up the user's own variables again
 const INHERITED = /^(CLAUDE|GHOSTTY_|ITERM_|KITTY_|WEZTERM_|VSCODE_|ELECTRON_|TERM_SESSION_ID$|TERM_PROGRAM_VERSION$|__CFBundleIdentifier$)/;
+export const cleanEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !INHERITED.test(k)));
 
 export const isTerminalUrl = (u) => /^terminal:/i.test(String(u || ''));
 
@@ -42,8 +43,7 @@ export class Terminals {
   start(tab, cols = 80, rows = 24) {
     this.kill(tab);
     const shell = process.env.SHELL || os.userInfo().shell || '/bin/zsh';
-    const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !INHERITED.test(k)));
-    Object.assign(env, { TERM: 'xterm-256color', COLORTERM: 'truecolor', TERM_PROGRAM: 'Homie', LANG: process.env.LANG || 'en_US.UTF-8' });
+    const env = Object.assign(cleanEnv(), { TERM: 'xterm-256color', COLORTERM: 'truecolor', TERM_PROGRAM: 'Homie', LANG: process.env.LANG || 'en_US.UTF-8' });
     // -l -i: the PATH, aliases and functions of the user's own terminal
     const p = pty.spawn(shell, ['-l', '-i'], { name: 'xterm-256color', cols, rows, cwd: terminalDir(tab.url), env });
     const s = { p, out: [], size: 0, pending: '', timer: null, exited: false, cols, rows };

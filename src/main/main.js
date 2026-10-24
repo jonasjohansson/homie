@@ -7,6 +7,7 @@ import { setupExtensions } from './extensions.js';
 import { Downloads } from './downloads.js';
 import { Terminals } from './terminal.js';
 import { Agents } from './agents.js';
+import { Asker } from './ask.js';
 
 // a second profile for development, beside the installed Homie: HOMIE_USER_DATA=/some/dir npm start
 if (process.env.HOMIE_USER_DATA) app.setPath('userData', process.env.HOMIE_USER_DATA);
@@ -67,6 +68,7 @@ app.whenReady().then(async () => {
   const extensions = await setupExtensions(ses, () => mgr);
   const bookmarks = new Bookmarks(() => { mgr?.syncBookmarks(); agents?.sync(); });
   mgr = new TabManager({ bookmarks, extensions });
+  mgr.asker = new Asker(mgr, bookmarks);
   mgr.terminals = new Terminals(mgr);
   mgr.terminals.wireIpc();
   mgr.downloads = new Downloads(mgr);

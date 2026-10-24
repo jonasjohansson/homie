@@ -6,7 +6,8 @@ so it is Chromium with Chrome extensions, and the sidebar is plain HTML and CSS.
 
 Version 4 (2026-10-23) replaced the native WebKit app, which replaced the Electron
 v2 the day before. Arc's sunset started all of it; the earlier versions are in git.
-Version 4.1 (2026-10-24) added terminal tabs and the MCP server for agents.
+Version 4.1 (2026-10-24) added terminal tabs and the MCP server for agents, 4.2 the
+ask window and reactions.
 
 ## Install
 
@@ -54,6 +55,7 @@ machine. Extensions install from the Chrome Web Store (Homie menu) and live in
 | Cmd+T | new tab: type a search or an address |
 | Cmd+L | edit the address of the current tab |
 | Cmd+F, Cmd+G | find in page, next match (Shift for previous) |
+| Cmd+J | ask Claude about the page |
 | Cmd+1…9 | pinned tab by position |
 | Ctrl+Tab, Ctrl+Shift+Tab | next, previous tab |
 | Cmd+W | close a Today tab; a pinned tab goes back to its page, or unloads |
@@ -102,6 +104,30 @@ the terminal types its path, Cmd+K clears. Option stays a character key, so
 @ [ ] { } type as usual on Nordic layouts; Cmd and Option with the arrows and
 Delete move and delete by line and word, and Shift+Return is a new line in
 Claude Code's prompt.
+
+## Ask and reactions
+
+Cmd+J asks Claude about the page in front of you: its text, title, address and
+any selected text go along with the question, and the answer streams in under
+it. Follow-up questions keep the earlier ones in mind; Escape or a click on the
+page puts it away. On a terminal tab it reads the terminal's last 400 lines.
+
+A pinned tab can react when its unread count goes up. The rule is plain text:
+
+```yaml
+      - url: https://mail.google.com/mail/
+        label: Gmail
+        react: Who wrote and what they want, one line per new message.
+```
+
+Eight seconds after the count rises, Claude reads the page with the rule and the
+answer arrives as a notification, at most once in two minutes per tab, and not
+while you are looking at that tab.
+
+Both run `claude -p` from [Claude Code](https://claude.com/claude-code), so they
+use your Claude subscription and need no API key. They run without tools, MCP
+servers, your CLAUDE.md or hooks, and keep no session. `ask: haiku` at the top of
+bookmarks.yml picks the model; it is Sonnet otherwise.
 
 ## Agents
 

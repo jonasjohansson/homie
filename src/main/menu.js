@@ -40,6 +40,7 @@ export function buildMenu(mgr, bookmarks) {
       { label: 'Find…', accelerator: 'Cmd+F', click: () => mgr.showPalette('find') },
       { label: 'Find Next', accelerator: 'Cmd+G', click: () => ui('find-step', 1) },
       { label: 'Find Previous', accelerator: 'Cmd+Shift+G', click: () => ui('find-step', -1) },
+      { label: 'Ask About This Page…', accelerator: 'Cmd+J', click: () => { if (t()) mgr.showPalette('ask', t().id); } },
       { type: 'separator' },
       { role: 'startSpeaking' }, { role: 'stopSpeaking' },
     ] },
