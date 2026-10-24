@@ -7,7 +7,8 @@ so it is Chromium with Chrome extensions, and the sidebar is plain HTML and CSS.
 Version 4 (2026-10-23) replaced the native WebKit app, which replaced the Electron
 v2 the day before. Arc's sunset started all of it; the earlier versions are in git.
 Version 4.1 (2026-10-24) added terminal tabs and the MCP server for agents, 4.2 the
-ask window and reactions, 4.3 and 4.4 a Claude for each tab.
+ask window and reactions, 4.3 and 4.4 a Claude for each tab, and 4.5 sets up Claude
+Code on a Mac that does not have it yet.
 
 ## Install
 
@@ -129,7 +130,8 @@ while you are looking at that tab.
 Both run `claude -p` from [Claude Code](https://claude.com/claude-code), so they
 use your Claude subscription and need no API key. They run without tools, MCP
 servers, your CLAUDE.md or hooks, and keep no session. `ask: haiku` at the top of
-bookmarks.yml picks the model; it is Sonnet otherwise.
+bookmarks.yml picks the model; it is Sonnet otherwise. Without Claude Code, or
+signed out of it, Cmd+J says so, and the Claude beside a page sets it up.
 
 ## A Claude for each tab
 
@@ -139,6 +141,10 @@ belongs to that bookmark: switch to the bookmark and its Claude is there, switch
 away and both go. It starts the first time you open it, keeps running while
 hidden, sleeps after half an hour hidden and quiet, and ends with Cmd+W in it or
 when the page unloads. Opening it again continues the conversation.
+
+It is Claude Code, signed in with your own Claude account. On a Mac without Claude
+Code the first one offers to install it: Return runs Anthropic's installer from
+claude.ai in plain view, and Claude then starts and asks you to sign in.
 
 Each bookmark has a folder, `~/Library/Application Support/Homie/Agents/<name>`,
 with a CLAUDE.md for its own rules ("Gmail: drafts only, never send"). Beside the
