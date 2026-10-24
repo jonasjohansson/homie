@@ -228,7 +228,8 @@ function renderCards() {
     c.classList.toggle('light', isLight(p.theme));   // the toolbar's ink follows the page's colour, not the OS theme
     c.classList.toggle('focused', !!p.focused); c.classList.toggle('single', n === 1);
     c.querySelector('.back').disabled = !p.canGoBack; c.querySelector('.fwd').disabled = !p.canGoForward;
-    const h = c.querySelector('.host'), txt = host(p.url); if (h.textContent !== txt) h.textContent = txt;
+    const h = c.querySelector('.host'), txt = p.label || host(p.url); if (h.textContent !== txt) h.textContent = txt;
+    const ag = c.querySelector('.agent'); ag.hidden = !p.agent; ag.classList.toggle('on', p.agent === 'on');
   });
   for (const c of existing.values()) c.remove();
   // gutters between panes carry the resize drag
@@ -253,5 +254,6 @@ function wireToolbar(c, id) {
   c.querySelector('.address').addEventListener('click', () => homie.send('pane', id, 'address'));
   c.querySelector('.paneClose').addEventListener('click', () => homie.send('pane', id, 'close'));
   c.querySelector('.addSplit').addEventListener('click', () => homie.send('pane', id, 'add-split'));
+  c.querySelector('.agent').addEventListener('click', () => homie.send('pane', id, 'agent'));
   c.addEventListener('mousedown', () => { if (S.panes?.length > 1 && !S.panes.find((p) => p.id === id)?.focused) homie.send('activate', id); });   // a click on a pane's toolbar focuses it
 }

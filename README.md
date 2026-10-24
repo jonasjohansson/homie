@@ -7,7 +7,7 @@ so it is Chromium with Chrome extensions, and the sidebar is plain HTML and CSS.
 Version 4 (2026-10-23) replaced the native WebKit app, which replaced the Electron
 v2 the day before. Arc's sunset started all of it; the earlier versions are in git.
 Version 4.1 (2026-10-24) added terminal tabs and the MCP server for agents, 4.2 the
-ask window and reactions.
+ask window and reactions, 4.3 a Claude beside each tab.
 
 ## Install
 
@@ -56,6 +56,7 @@ machine. Extensions install from the Chrome Web Store (Homie menu) and live in
 | Cmd+L | edit the address of the current tab |
 | Cmd+F, Cmd+G | find in page, next match (Shift for previous) |
 | Cmd+J | ask Claude about the page |
+| Cmd+Option+J | Claude beside this tab, in a pane of its own |
 | Cmd+1…9 | pinned tab by position |
 | Ctrl+Tab, Ctrl+Shift+Tab | next, previous tab |
 | Cmd+W | close a Today tab; a pinned tab goes back to its page, or unloads |
@@ -128,6 +129,20 @@ Both run `claude -p` from [Claude Code](https://claude.com/claude-code), so they
 use your Claude subscription and need no API key. They run without tools, MCP
 servers, your CLAUDE.md or hooks, and keep no session. `ask: haiku` at the top of
 bookmarks.yml picks the model; it is Sonnet otherwise.
+
+## A Claude beside each tab
+
+The Claude button in a page's toolbar (Cmd+Option+J) opens Claude Code in a pane
+beside the page. It belongs to that bookmark: switch to the bookmark and its Claude
+is there, switch away and both go. It starts the first time you open it, keeps
+running while hidden, and ends with Cmd+W in it or when the page unloads.
+
+Each bookmark has a folder, `~/Library/Application Support/Homie/Agents/<name>`,
+with a CLAUDE.md for standing rules ("Gmail: drafts only, never send"), and its
+Claude picks up the folder's last conversation when it opens again. Homie tells it
+which tab it sits beside, so "this page" means that page; with the agent tools on it
+can read and look at the page, and your own connectors (Google, for example) let it
+work in the documents themselves.
 
 ## Agents
 

@@ -43,7 +43,8 @@ export class Terminals {
   start(tab, cols = 80, rows = 24) {
     this.kill(tab);
     const shell = process.env.SHELL || os.userInfo().shell || '/bin/zsh';
-    const env = Object.assign(cleanEnv(), { TERM: 'xterm-256color', COLORTERM: 'truecolor', TERM_PROGRAM: 'Homie', LANG: process.env.LANG || 'en_US.UTF-8' });
+    const run = tab.kind === 'companion' ? this.mgr.companionCommand(tab) : tab.kind === 'pinned' ? String(tab.run || '').trim() : '';   // a companion's command is Homie's own
+    const env = Object.assign(cleanEnv(), { TERM: 'xterm-256color', COLORTERM: 'truecolor', TERM_PROGRAM: 'Homie', LANG: process.env.LANG || 'en_US.UTF-8' }, tab.env || {});
     // -l -i: the PATH, aliases and functions of the user's own terminal
     const p = pty.spawn(shell, ['-l', '-i'], { name: 'xterm-256color', cols, rows, cwd: terminalDir(tab.url), env });
     const s = { p, out: [], size: 0, pending: '', timer: null, exited: false, cols, rows };
@@ -53,7 +54,6 @@ export class Terminals {
       if (this.sessions.get(tab.id) === s && tab.wc && !tab.wc.isDestroyed()) tab.wc.send('term:exit', exitCode);
     });
     this.sessions.set(tab.id, s);
-    const run = tab.kind === 'pinned' ? String(tab.run || '').trim() : '';
     if (run) p.write(run + '\r');   // typed ahead; the shell reads it once its prompt is up
     return s;
   }

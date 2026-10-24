@@ -146,7 +146,9 @@ body.sidebar-hidden .card:first-child .nav .toggle2 { width: 30px; opacity: 1; m
 browser-action-list { height: 28px; }
 browser-action-list::part(action) { width: 28px; height: 28px; border-radius: 6px; background: none; }
 browser-action-list::part(action):hover { background: none; }
-.paneClose, .addSplit { width: 28px; height: 28px; color: var(--card-muted); border-radius: 6px; transition: background-color var(--t-hover) var(--ease-out); }
-.addSplit:hover { background: var(--hover); }
+.paneClose, .addSplit, .agent { width: 28px; height: 28px; color: var(--card-muted); border-radius: 6px; transition: background-color var(--t-hover) var(--ease-out); }
+.addSplit:hover, .agent:hover { background: var(--hover); }
+.agent.on { color: var(--card-fg); }
+.agent[hidden] { display: none; }
 .card.single .paneClose { display: none; }
 #gutters .gutter { position: absolute; cursor: col-resize; -webkit-app-region: no-drag; }

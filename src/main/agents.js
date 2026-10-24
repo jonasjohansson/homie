@@ -105,7 +105,7 @@ export class Agents {
   }
 
   info(t, where) {
-    return { id: t.id, where, title: t.customTitle || t.title || t.label, url: t.url, active: t === this.mgr.active, loaded: t.loaded, ...(t.terminal ? { terminal: true } : {}) };
+    return { id: t.id, where, title: t.customTitle || t.title || t.label, url: t.url, active: t === (this.mgr.active?.host || this.mgr.active), loaded: t.loaded, ...(t.terminal ? { terminal: true } : {}) };
   }
 
   // a tab that is not loaded is loaded in the background; reading waits for it, at most 15 seconds
