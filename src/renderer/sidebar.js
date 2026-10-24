@@ -228,24 +228,19 @@ function renderCards() {
     c.classList.toggle('light', isLight(p.theme));   // the toolbar's ink follows the page's colour, not the OS theme
     c.classList.toggle('focused', !!p.focused); c.classList.toggle('single', n === 1);
     c.querySelector('.back').disabled = !p.canGoBack; c.querySelector('.fwd').disabled = !p.canGoForward;
-    const h = c.querySelector('.host'), txt = p.label || host(p.url); if (h.textContent !== txt) h.textContent = txt;
+    const h = c.querySelector('.host'), txt = host(p.url); if (h.textContent !== txt) h.textContent = txt;
     const ag = c.querySelector('.agent'); ag.hidden = !p.agent; ag.classList.toggle('on', p.agent === 'on');
   });
   for (const c of existing.values()) c.remove();
-  // gutters carry the resize drag: between columns (sideways), and between a page and its
-  // Claude below it (up and down)
-  let col = -1;
+  // gutters between panes carry the resize drag
   guttersEl.replaceChildren(...panes.slice(0, -1).map((p, i) => {
-    if (!p.stacked) col++;
-    const q = panes[i + 1], y = q.stacked, head = p.stacked ? panes[i - 1] : p;
-    const g = document.createElement('div'); g.className = y ? 'gutter y' : 'gutter';
-    const box = y ? { left: p.x, top: p.y + p.h, width: p.w, height: q.y - (p.y + p.h) } : { left: p.x + p.w, top: head.y, width: q.x - (p.x + p.w), height: p.y + p.h - head.y };
-    Object.assign(g.style, Object.fromEntries(Object.entries(box).map(([k, v]) => [k, v + 'px'])));
-    const at = (ev) => (y ? ev.clientY : ev.clientX), idx = y ? i : col, axis = y ? 'y' : 'x';
+    const g = document.createElement('div'); g.className = 'gutter'; g.dataset.i = i;
+    const x = p.x + p.w, w = panes[i + 1].x - x;
+    Object.assign(g.style, { left: x + 'px', top: p.y + 'px', width: w + 'px', height: p.h + 'px' });
     g.addEventListener('mousedown', (e) => {
-      e.preventDefault(); document.body.classList.add('resizing'); homie.send('split-drag', 'start', idx, at(e), axis);
-      const move = (ev) => homie.send('split-drag', 'move', idx, at(ev), axis);
-      const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); document.body.classList.remove('resizing'); homie.send('split-drag', 'end', idx, 0, axis); };
+      e.preventDefault(); document.body.classList.add('resizing'); homie.send('split-drag', 'start', i, e.clientX);
+      const move = (ev) => homie.send('split-drag', 'move', i, ev.clientX);
+      const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); document.body.classList.remove('resizing'); homie.send('split-drag', 'end', i, 0); };
       window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
     });
     return g;

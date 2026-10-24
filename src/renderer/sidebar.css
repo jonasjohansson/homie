@@ -152,4 +152,3 @@ browser-action-list::part(action):hover { background: none; }
 .agent[hidden] { display: none; }
 .card.single .paneClose { display: none; }
 #gutters .gutter { position: absolute; cursor: col-resize; -webkit-app-region: no-drag; }
-#gutters .gutter.y { cursor: row-resize; }

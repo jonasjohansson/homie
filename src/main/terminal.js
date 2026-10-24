@@ -47,7 +47,7 @@ export class Terminals {
     const env = Object.assign(cleanEnv(), { TERM: 'xterm-256color', COLORTERM: 'truecolor', TERM_PROGRAM: 'Homie', LANG: process.env.LANG || 'en_US.UTF-8' }, tab.env || {});
     // -l -i: the PATH, aliases and functions of the user's own terminal
     const p = pty.spawn(shell, ['-l', '-i'], { name: 'xterm-256color', cols, rows, cwd: terminalDir(tab.url), env });
-    const s = { p, out: [], size: 0, pending: '', timer: null, exited: false, cols, rows };
+    const s = { p, out: [], size: 0, pending: '', timer: null, exited: false, cols, rows, last: Date.now() };   // last: input or output, for idle Claudes
     p.onData((d) => this.output(tab, s, d));
     p.onExit(({ exitCode }) => {
       s.exited = true; this.flush(tab, s);
@@ -59,6 +59,7 @@ export class Terminals {
   }
 
   output(tab, s, d) {
+    s.last = Date.now();
     s.out.push(d); s.size += d.length;
     while (s.size > REPLAY_MAX && s.out.length > 1) s.size -= s.out.shift().length;
     s.pending += d;
@@ -96,7 +97,7 @@ export class Terminals {
       if (!s.exited) this.resize(s, cols, rows);
       return { replay: s.out.join(''), exited: s.exited };
     });
-    ipcMain.on('term:input', (e, d) => { const [, s] = session(e); if (s && !s.exited) s.p.write(String(d)); });
+    ipcMain.on('term:input', (e, d) => { const [, s] = session(e); if (s && !s.exited) { s.last = Date.now(); s.p.write(String(d)); } });
     ipcMain.on('term:resize', (e, cols, rows) => { const [, s] = session(e); if (s && !s.exited) this.resize(s, cols, rows); });
     ipcMain.on('term:restart', (e, cols, rows) => { const [t] = session(e); if (t) { try { this.start(t, cols | 0 || 80, rows | 0 || 24); } catch (err) { e.sender.send('term:data', `\r\n${err.message}\r\n`); } } });
     ipcMain.on('term:link', (e, url) => { const [t] = session(e); if (t && /^https?:\/\//i.test(String(url))) this.mgr.open(String(url), { after: t.kind === 'today' ? t : null }); });

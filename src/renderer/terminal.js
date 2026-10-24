@@ -1,14 +1,18 @@
 // One terminal per tab: xterm.js drawing the shell that src/main/terminal.js keeps for the tab.
-// One Dark colours, JetBrains Mono when it is installed, a bar cursor.
-const FONT = '"JetBrains Mono", "SF Mono", Menlo, monospace', SIZE = 14;
+// Homie's dark card colour with One Dark's hues for the colours programs use, JetBrains Mono when
+// it is installed, a bar cursor that disappears when the terminal is not focused. #overlay is a
+// tab's own Claude, floating over its page: smaller type.
+const OVERLAY = location.hash === '#overlay';
+if (OVERLAY) document.body.classList.add('overlay');
+const FONT = '"JetBrains Mono", "SF Mono", Menlo, monospace', SIZE = OVERLAY ? 12.5 : 14;
 const theme = {
-  background: '#282c34', foreground: '#c8ccd4', cursor: '#c8ccd4', cursorAccent: '#282c34',
-  selectionBackground: '#3e4451', selectionForeground: '#c8ccd4',
-  black: '#282c34', red: '#e06c75', green: '#98c379', yellow: '#e5c07b', blue: '#61afef', magenta: '#c678dd', cyan: '#56b6c2', white: '#abb2bf',
-  brightBlack: '#545862', brightRed: '#e06c75', brightGreen: '#98c379', brightYellow: '#e5c07b', brightBlue: '#61afef', brightMagenta: '#c678dd', brightCyan: '#56b6c2', brightWhite: '#c8ccd4',
+  background: '#202124', foreground: '#e6e6e6', cursor: '#f1f1f1', cursorAccent: '#202124',
+  selectionBackground: 'rgba(255, 255, 255, 0.16)', selectionForeground: '#ffffff',
+  black: '#202124', red: '#e06c75', green: '#98c379', yellow: '#e5c07b', blue: '#61afef', magenta: '#c678dd', cyan: '#56b6c2', white: '#c8c8cc',
+  brightBlack: '#7d7b85', brightRed: '#e06c75', brightGreen: '#98c379', brightYellow: '#e5c07b', brightBlue: '#61afef', brightMagenta: '#c678dd', brightCyan: '#56b6c2', brightWhite: '#ffffff',
 };
 const term = new Terminal({
-  fontFamily: FONT, fontSize: SIZE, theme, cursorStyle: 'bar', cursorBlink: false, scrollback: 10000,
+  fontFamily: FONT, fontSize: SIZE, theme, cursorStyle: 'bar', cursorInactiveStyle: 'none', cursorBlink: false, scrollback: 10000,
   allowProposedApi: true, macOptionIsMeta: false, macOptionClickForcesSelection: true,   // Option stays a character key: @ [ ] { } on Nordic layouts
 });
 const fit = new FitAddon.FitAddon();

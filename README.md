@@ -7,7 +7,7 @@ so it is Chromium with Chrome extensions, and the sidebar is plain HTML and CSS.
 Version 4 (2026-10-23) replaced the native WebKit app, which replaced the Electron
 v2 the day before. Arc's sunset started all of it; the earlier versions are in git.
 Version 4.1 (2026-10-24) added terminal tabs and the MCP server for agents, 4.2 the
-ask window and reactions, 4.3 a Claude beside each tab.
+ask window and reactions, 4.3 and 4.4 a Claude for each tab.
 
 ## Install
 
@@ -23,7 +23,8 @@ Homie menu turns that off, and `open -a Homie --args --login-item=off` does the
 same from a shell, without opening a window.
 
 To work on Homie beside the installed one, `HOMIE_USER_DATA=/tmp/homie-dev npm start`
-runs a second profile; its window opens behind the one you are in.
+runs a second profile; its window opens behind the one you are in. Add
+`HOMIE_AGENT_PORT=47617` when the installed Homie already serves agents.
 
 ## Bookmarks
 
@@ -56,7 +57,7 @@ machine. Extensions install from the Chrome Web Store (Homie menu) and live in
 | Cmd+L | edit the address of the current tab |
 | Cmd+F, Cmd+G | find in page, next match (Shift for previous) |
 | Cmd+J | ask Claude about the page |
-| Cmd+Option+J | Claude for this tab, in a pane under it |
+| Cmd+Option+J | Claude for this tab, floating over its corner |
 | Cmd+1…9 | pinned tab by position |
 | Ctrl+Tab, Ctrl+Shift+Tab | next, previous tab |
 | Cmd+W | close a Today tab; a pinned tab goes back to its page, or unloads |
@@ -130,18 +131,22 @@ use your Claude subscription and need no API key. They run without tools, MCP
 servers, your CLAUDE.md or hooks, and keep no session. `ask: haiku` at the top of
 bookmarks.yml picks the model; it is Sonnet otherwise.
 
-## A Claude beside each tab
+## A Claude for each tab
 
-The Claude button in a page's toolbar (Cmd+Option+J) opens Claude Code in a pane
-under the page; drag the line between them to share the height. It belongs to that bookmark: switch to the bookmark and its Claude
-is there, switch away and both go. It starts the first time you open it, keeps
-running while hidden, and ends with Cmd+W in it or when the page unloads.
+The Claude button in a page's toolbar (Cmd+Option+J) opens Claude Code as a small
+terminal floating in the page's bottom-right corner; the page keeps its size. It
+belongs to that bookmark: switch to the bookmark and its Claude is there, switch
+away and both go. It starts the first time you open it, keeps running while
+hidden, sleeps after half an hour hidden and quiet, and ends with Cmd+W in it or
+when the page unloads. Opening it again continues the conversation.
 
 Each bookmark has a folder, `~/Library/Application Support/Homie/Agents/<name>`,
-with a CLAUDE.md for standing rules ("Gmail: drafts only, never send"), and its
-Claude picks up the folder's last conversation when it opens again. Homie tells it
-which tab it sits beside, so "this page" means that page; with the agent tools on it
-can read and look at the page, and your own connectors (Google, for example) let it
+with a CLAUDE.md for its own rules ("Gmail: drafts only, never send"). Beside the
+folders, `Agents/CLAUDE.md` holds rules for all of them and `Agents/settings.json`
+their permissions: by default no shell and no file edits, and Claude asks before
+every action, whatever your own Claude Code defaults are. It reads its page with
+Homie's tools under a key that reaches that tab alone, so a page or an email cannot
+steer it into your other tabs. Your own connectors (Google, for example) let it
 work in the documents themselves.
 
 ## Agents

@@ -1,8 +1,11 @@
-/* One Dark, the padding of a terminal app's window, nothing else */
-:root { --bg: #282c34; --pad: 8px; --thumb: rgba(200, 204, 212, .25); }
+/* Homie's dark card colour and a terminal's padding. As a tab's Claude (overlay) it floats over
+   the page: a hairline edge instead of a shadow, tighter padding. */
+:root { --bg: #202124; --pad: 8px; --thumb: rgba(241, 241, 241, .22); --edge: rgba(255, 255, 255, .14); --radius: 10px; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; overflow: hidden; background: var(--bg); }
 #term { position: absolute; inset: var(--pad); }
+body.overlay { --pad: 8px 6px 6px 10px; }
+body.overlay::after { content: ""; position: fixed; inset: 0; border: 1px solid var(--edge); border-radius: var(--radius); pointer-events: none; }
 .xterm-viewport::-webkit-scrollbar { width: 8px; }
 .xterm-viewport::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: 4px; }
 .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
