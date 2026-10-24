@@ -7,7 +7,12 @@ import { execFileSync } from 'node:child_process';
 
 const app = process.argv[2];
 if (!app) { console.error('usage: sign.mjs <app>'); process.exit(2); }
-await signAsync({ app, identity: 'Developer ID Application: JONAS JOHANSSON (4C8U4BC896)', optionsForFile: () => ({ entitlements: 'build/entitlements.plist' }) });
+// Apple's timestamp server drops a request now and then ("A timestamp was expected but was
+// not found"), which fails the whole pass; three attempts cover it.
+for (let attempt = 1; ; attempt++) {
+  try { await signAsync({ app, identity: 'Developer ID Application: JONAS JOHANSSON (4C8U4BC896)', optionsForFile: () => ({ entitlements: 'build/entitlements.plist' }) }); break; }
+  catch (e) { if (attempt >= 3) throw e; console.log(`sign attempt ${attempt} failed: ${String(e.message).split('\n').pop()}; retrying`); }
+}
 execFileSync('codesign', ['--verify', '--deep', '--strict', app]);
 console.log('signed  ', app);
 
