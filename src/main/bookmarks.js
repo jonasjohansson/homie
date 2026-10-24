@@ -9,7 +9,9 @@ import path from 'node:path';
 import YAML from 'yaml';
 
 const STARTER = `# Homie — the pinned sidebar. Per group: name, icon (an emoji). Per tab: url (required), label, muted, badge (default true).
+# A url of terminal:~/some/folder is a shell in that folder; run: types a command there, like run: claude
 # tint: "#0d0d1f #170e1f"   # optional window colour, one or two (top bottom)
+# agents: true              # let agents on this Mac see and drive the tabs (MCP on 127.0.0.1, see the README)
 groups:
   - name: Homie
     tabs:
@@ -25,6 +27,7 @@ export class Bookmarks {
     this.onChange = onChange;
     this.groups = [];
     this.tint = '';
+    this.agents = false;
     if (!fs.existsSync(this.path)) {
       fs.mkdirSync(path.dirname(this.path), { recursive: true });
       fs.writeFileSync(this.path, STARTER);
@@ -44,12 +47,14 @@ export class Bookmarks {
       for (const t of g.tabs || []) {
         if (!t || !t.url) continue;
         let label = t.label;
+        if (!label && /^terminal:/i.test(t.url)) label = 'Terminal';
         if (!label) { try { label = new URL(t.url).hostname.replace(/^www\./, ''); } catch { label = t.url; } }
-        tabs.push({ url: String(t.url), label: String(label), muted: !!t.muted, badge: t.badge !== false });
+        tabs.push({ url: String(t.url), label: String(label), muted: !!t.muted, badge: t.badge !== false, run: typeof t.run === 'string' ? t.run : '' });
       }
       groups.push({ name: String(g.name || ''), icon: typeof g.icon === 'string' ? g.icon.trim().slice(0, 4) : '', tabs });
     }
     this.groups = groups;
+    this.agents = doc.agents === true;
     this.tint = typeof doc.tint === 'string' && /^#[0-9a-f]{6}(\s+#[0-9a-f]{6})?$/i.test(doc.tint.trim()) ? doc.tint.trim() : '';   // one colour, or two for a top-to-bottom gradient
     return true;
   }

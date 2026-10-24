@@ -122,7 +122,7 @@ function isLight(col) {
   if (!m) return !matchMedia('(prefers-color-scheme: dark)').matches;
   return (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) > 140;
 }
-function host(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u === 'homie://downloads' ? 'Downloads' : ''; } }
+function host(u) { if (/^terminal:/i.test(u)) return u.replace(/^terminal:(\/\/)?/i, '') || '~'; try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u === 'homie://downloads' ? 'Downloads' : ''; } }
 
 function startRenameGroup(name) {
   const sec = document.querySelector(`section.group[data-name="${CSS.escape(name)}"]`); if (!sec) return;

@@ -5,16 +5,20 @@ import { TabManager } from './tabs.js';
 import { buildMenu } from './menu.js';
 import { setupExtensions } from './extensions.js';
 import { Downloads } from './downloads.js';
+import { Terminals } from './terminal.js';
+import { Agents } from './agents.js';
 
+// a second profile for development, beside the installed Homie: HOMIE_USER_DATA=/some/dir npm start
+if (process.env.HOMIE_USER_DATA) app.setPath('userData', process.env.HOMIE_USER_DATA);
 if (!app.requestSingleInstanceLock()) app.quit();
 
-let mgr = null;
+let mgr = null, agents = null;
 const pending = [];
 const openUrl = (url) => { if (mgr?.win) { mgr.focus(); mgr.open(url); } else pending.push(url); };
 
 app.on('open-url', (e, url) => { e.preventDefault(); openUrl(url); });
 app.on('second-instance', (_e, argv) => { const u = argv.find((a) => /^https?:\/\//.test(a)); if (u) openUrl(u); else mgr?.focus(); });
-app.on('before-quit', () => { app.quitting = true; saveState(true); });
+app.on('before-quit', () => { app.quitting = true; saveState(true); mgr?.terminals?.killAll(); });
 app.on('activate', () => mgr?.focus());
 app.on('window-all-closed', () => {});
 
@@ -53,8 +57,10 @@ app.whenReady().then(async () => {
   if (app.isPackaged && !app.getLoginItemSettings().openAtLogin) app.setLoginItemSettings({ openAtLogin: true });
 
   const extensions = await setupExtensions(ses, () => mgr);
-  const bookmarks = new Bookmarks(() => mgr?.syncBookmarks());
+  const bookmarks = new Bookmarks(() => { mgr?.syncBookmarks(); agents?.sync(); });
   mgr = new TabManager({ bookmarks, extensions });
+  mgr.terminals = new Terminals(mgr);
+  mgr.terminals.wireIpc();
   mgr.downloads = new Downloads(mgr);
   mgr.downloads.attach(ses);
   mgr.downloads.wireIpc();
@@ -64,6 +70,8 @@ app.whenReady().then(async () => {
   mgr.restoreToday();
   mgr.syncBookmarks(true);
   mgr.restoreSplit();
+  agents = new Agents(mgr, bookmarks);
+  agents.sync();
   for (const u of pending.splice(0)) mgr.open(u);
   const argUrl = process.argv.slice(1).find((a) => /^https?:\/\//.test(a));
   if (argUrl) mgr.open(argUrl);

@@ -1,0 +1,8 @@
+/* One Dark, the padding of a terminal app's window, nothing else */
+:root { --bg: #282c34; --pad: 8px; --thumb: rgba(200, 204, 212, .25); }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: var(--bg); }
+#term { position: absolute; inset: var(--pad); }
+.xterm-viewport::-webkit-scrollbar { width: 8px; }
+.xterm-viewport::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: 4px; }
+.xterm-viewport::-webkit-scrollbar-track { background: transparent; }

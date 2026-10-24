@@ -1,7 +1,7 @@
 {
   "name": "homie",
   "productName": "Homie",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "description": "A sidebar browser: pinned sites shared through one YAML, the rest of the web in a Today list.",
   "license": "MIT",
   "type": "module",
@@ -13,11 +13,18 @@
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
+    "postinstall": "node -e \"for (const a of ['darwin-arm64', 'darwin-x64']) try { require('fs').chmodSync('node_modules/node-pty/prebuilds/' + a + '/spawn-helper', 0o755) } catch {}\"",
     "package": "electron-forge package"
   },
   "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-unicode11": "^0.9.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/addon-webgl": "^0.19.0",
+    "@xterm/xterm": "^6.0.0",
     "electron-chrome-extensions": "^4.9.0",
     "electron-chrome-web-store": "^0.13.0",
+    "node-pty": "^1.1.0",
     "yaml": "^2.9.1"
   },
   "devDependencies": {

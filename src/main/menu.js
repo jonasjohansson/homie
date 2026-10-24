@@ -17,6 +17,7 @@ export function buildMenu(mgr, bookmarks) {
     ] },
     { label: 'File', submenu: [
       { label: 'New Tab', accelerator: 'Cmd+T', click: () => mgr.showPalette('new') },
+      { label: 'New Terminal Tab', click: () => mgr.open('terminal:~') },
       { label: 'Open Address', accelerator: 'Cmd+L', click: () => mgr.showPalette('url') },
       { label: 'Reopen Closed Tab', accelerator: 'Cmd+Shift+T', click: () => mgr.reopenClosed() },
       { label: 'Pin or Unpin Tab', accelerator: 'Cmd+D', click: () => { const a = t(); if (!a) return; if (a.kind === 'today') mgr.showPalette('pin', a.id); else if (a.kind === 'pinned') mgr.unpin(a.id); } },   // Arc: Cmd+D toggles

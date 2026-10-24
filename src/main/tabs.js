@@ -8,6 +8,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { state, saveState } from './state.js';
 import { recordVisit, updateTitle, searchHistory } from './history.js';
+import { TERMINAL_HTML, TERMINAL_PRELOAD, isTerminalUrl } from './terminal.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PAGE_PRELOAD = path.join(__dirname, '..', 'preload', 'page.cjs');
@@ -18,6 +19,8 @@ const TOOLBAR = 32, MARGIN = 10, RADIUS = 12, GUTTER = 10, PANE_MIN = 240, MAX_P
 const PALETTE_W = 640;
 const SIDEBAR_MS = 90;   // Arc: the card edge settles in 60 to 90 ms with an ease-out
 const STAGGER_MS = 600;
+// a terminal row's favicon: its own dark tile, so it reads on the light and the dark sidebar
+const TERMINAL_ICON = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" rx="3.5" fill="#282c34"/><path d="M4.5 5l3 3-3 3M8.5 11h3" fill="none" stroke="#c8ccd4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
 
 // Installed in the page's main world after dom-ready (executeJavaScript is not
 // subject to the site's CSP). Replaces Notification so a click brings the tab forward;
@@ -65,11 +68,14 @@ export class Tab {
     this.view = null;
     this.notifications = new Map();
     this.page = opts.page || null;        // internal pages: a file under src/renderer
+    this.run = opts.run || '';            // a pinned terminal's command, from bookmarks.yml
+    if (this.terminal) this.favicon = TERMINAL_ICON;
   }
 
   get loaded() { return !!this.view && !this.view.webContents.isDestroyed(); }
   get wc() { return this.view?.webContents; }
   get away() { return this.kind === 'pinned' && this.loaded && !sameSite(this.url, this.pinnedUrl); }
+  get terminal() { return this.kind !== 'internal' && isTerminalUrl(this.url); }
 
   dto() {
     return { id: this.id, kind: this.kind, url: this.url, pinnedUrl: this.pinnedUrl, label: this.label, title: this.customTitle || this.title, favicon: this.favicon,
@@ -77,8 +83,10 @@ export class Tab {
   }
 
   load(url = this.url) {
+    if (this.terminal !== isTerminalUrl(url)) return;   // a terminal never shows a web page, nor a web tab a terminal
     if (!this.loaded) this.mgr.createView(this);
     if (this.kind === 'internal') this.wc.loadFile(this.page).catch(() => {});
+    else if (this.terminal) this.wc.loadFile(TERMINAL_HTML).catch(() => {});
     else this.wc.loadURL(url).catch(() => {});
   }
 
@@ -168,7 +176,8 @@ export class TabManager {
     nativeTheme.on('updated', () => this.win?.setBackgroundColor(this.tintColor()));
     this.layout();
     // ready-to-show never fires: the window's own webContents loads nothing
-    const show = () => { if (this.win && !this.win.isVisible()) this.win.show(); };
+    // a development profile (HOMIE_USER_DATA) opens behind the window in use instead of taking focus
+    const show = () => { if (this.win && !this.win.isVisible()) { if (process.env.HOMIE_USER_DATA) this.win.showInactive(); else this.win.show(); } };
     this.sidebar.webContents.once('did-finish-load', show);
     setTimeout(show, 1500);
   }
@@ -309,10 +318,10 @@ export class TabManager {
 
   // --- views ------------------------------------------------------------------------
   createView(tab) {
-    const internal = tab.kind === 'internal';
+    const internal = tab.kind === 'internal', terminal = tab.terminal;
     const view = new WebContentsView({
-      webPreferences: internal
-        ? { preload: SIDEBAR_PRELOAD, sandbox: false, contextIsolation: true, nodeIntegration: false, partition: 'homie-ui' }
+      webPreferences: internal || terminal
+        ? { preload: terminal ? TERMINAL_PRELOAD : SIDEBAR_PRELOAD, sandbox: false, contextIsolation: true, nodeIntegration: false, partition: 'homie-ui' }
         : { preload: PAGE_PRELOAD, sandbox: false, contextIsolation: true, nodeIntegration: false, backgroundThrottling: true, partition: 'persist:homie' },   // sandbox off only so the preload's webFrame can install the Chrome shim before page scripts
     });
     tab.view = view;
@@ -326,6 +335,16 @@ export class TabManager {
       wc.on('page-title-updated', (_e, title) => { tab.title = title; this.push(); this.updateWindowTitle(); });
       wc.on('context-menu', (e) => e.preventDefault());
       wc.setWindowOpenHandler(({ url }) => { this.open(url); return { action: 'deny' }; });
+      return view;
+    }
+    if (terminal) {
+      // the page stays terminal.html: links open as tabs through the main process (term:link)
+      tab.pageBg = '#282c34';   // the toolbar takes the terminal's background, as it does a page's
+      wc.on('page-title-updated', (_e, title) => { tab.title = title; if (tab.kind === 'today') this.saveToday(); this.push(); this.updateWindowTitle(); });
+      wc.on('focus', () => { if (this.active !== tab && this.split?.panes.includes(tab) && this.visiblePanes().includes(tab)) this.activate(tab.id); });
+      wc.on('will-navigate', (e) => e.preventDefault());
+      wc.on('context-menu', () => this.terminalContextMenu(tab));
+      wc.setWindowOpenHandler(() => ({ action: 'deny' }));
       return view;
     }
     this.addingTab = true;
@@ -348,6 +367,7 @@ export class TabManager {
     wc.on('enter-html-full-screen', () => { this.fullscreenTab = tab; this.layout(); });
     wc.on('leave-html-full-screen', () => { this.fullscreenTab = null; this.layout(); });
     wc.setWindowOpenHandler(({ url, disposition, features }) => {
+      if (isTerminalUrl(url)) return { action: 'deny' };   // a page cannot open a shell
       if (disposition === 'new-window' && features) {
         // a real popup (OAuth, "open in window"); keep it a window so window.opener works
         return { action: 'allow', overrideBrowserWindowOptions: { parent: this.win, autoHideMenuBar: true,
@@ -365,6 +385,7 @@ export class TabManager {
 
   destroyView(tab) {
     if (!tab.view) return;
+    if (tab.terminal) this.terminals?.kill(tab);   // unloading or closing a terminal ends its shell
     const wc = tab.view.webContents;
     this.removingTab = true;   // the library echoes removeTab back to the bridge; that echo must not close a neighbour
     try { this.extensions?.removeTab(wc); } catch {}
@@ -387,12 +408,12 @@ export class TabManager {
         let t = old.get(spec.url);
         if (t) {
           old.delete(spec.url);
-          t.label = spec.label; t.showsBadge = spec.badge;
+          t.label = spec.label; t.showsBadge = spec.badge; t.run = spec.run;
           if (t.muted !== spec.muted) { t.muted = spec.muted; t.wc?.setAudioMuted(spec.muted); }
           if (!t.title) t.title = spec.label;
-          t.titleChanged(t.title);
+          if (!t.terminal) t.titleChanged(t.title);   // a terminal's badge is its bell, not a count in its title
         } else {
-          t = new Tab(this, { kind: 'pinned', url: spec.url, label: spec.label, muted: spec.muted, badge: spec.badge, favicon: (state.favicons || {})[spec.url] || '' });
+          t = new Tab(this, { kind: 'pinned', url: spec.url, label: spec.label, muted: spec.muted, badge: spec.badge, run: spec.run, favicon: (state.favicons || {})[spec.url] || '' });
           this.tabs.set(t.id, t);
           setTimeout(() => { if (this.tabs.has(t.id)) t.load(); }, initial ? delay : 0);
           delay += STAGGER_MS;
@@ -458,6 +479,7 @@ export class TabManager {
     if (!t) return;
     if (this.active?.wc && this.active !== t) this.active.wc.stopFindInPage('clearSelection');
     this.active = t;
+    if (t.terminal && t.unread) { t.unread = 0; this.badgesChanged(); }
     if (!t.loaded) t.load();
     if (this.split?.panes.includes(t)) { this.split.focus = this.split.panes.indexOf(t); for (const p of this.split.panes) if (!p.loaded) p.load(); this.saveSplit(); }
     try { this.extensions?.selectTab(t.wc); } catch {}
@@ -489,7 +511,7 @@ export class TabManager {
     if (split) { const t = this.open(url, { background: true }); this.splitWith(t.id); return; }
     const pin = this.allPinned().find((p) => p.pinnedUrl === url);   // Arc: a pinned address switches to the pin
     if (pin && (newTab || this.active !== pin)) return this.activate(pin.id);
-    if (newTab || !this.active) return this.open(url);
+    if (newTab || !this.active || this.active.terminal || isTerminalUrl(url)) return this.open(url);
     this.active.load(url);
   }
 
@@ -642,7 +664,7 @@ export class TabManager {
     if (t.kind === 'today') items.push({ label: 'Rename', click: () => this.sendUI('start-rename', id) });
     if (t.kind === 'pinned') {
       items.push({ label: 'Rename', click: () => this.sendUI('start-rename', id) });
-      items.push({ label: 'Edit Pinned Page', submenu: [
+      if (!t.terminal) items.push({ label: 'Edit Pinned Page', submenu: [
         { label: 'Replace Pinned URL with Current', enabled: t.away, click: () => this.repin(t, t.url) },
         { label: 'Edit the Pinned URL…', click: () => this.showPalette('edit-url', id) },
         { label: 'Back to Pinned URL', enabled: t.away, click: () => t.load(t.pinnedUrl) },
@@ -658,7 +680,8 @@ export class TabManager {
       [{ type: 'separator' }, { label: 'Today', type: 'checkbox', checked: t.kind === 'today', click: () => this.moveTab(id, null, 0) }, { label: 'New Folder…', click: () => this.showPalette('pin', id) }]) });
     items.push({ type: 'separator' });
     items.push({ label: 'Reload', enabled: t.loaded, click: () => t.wc?.reload() });
-    items.push({ label: 'Open in Chrome', click: () => openInChrome(t.url) });
+    if (t.terminal) items.push({ label: 'Restart Shell', enabled: t.loaded, click: () => this.terminals?.restart(t) });
+    else items.push({ label: 'Open in Chrome', click: () => openInChrome(t.url) });
     items.push({ type: 'separator' });
     if (t.kind === 'pinned') {
       items.push({ label: t.loaded ? 'Close and Keep Pinned' : 'Load', click: () => (t.loaded ? this.close(id) : t.load()) });
@@ -667,6 +690,28 @@ export class TabManager {
       items.push({ label: 'Close', click: () => this.close(id) });
     }
     Menu.buildFromTemplate(items).popup({ window: this.win, x: Math.round(x), y: Math.round(y) });
+  }
+
+  terminalContextMenu(tab) {
+    Menu.buildFromTemplate([
+      { role: 'copy' }, { role: 'paste' },
+      { type: 'separator' },
+      { label: 'Clear', click: () => tab.wc?.send('term:clear') },
+      { label: 'Restart Shell', click: () => this.terminals?.restart(tab) },
+    ]).popup({ window: this.win });
+  }
+
+  // a terminal rang (BEL) or posted a notification (OSC 9 or 777): the row gets a badge while it
+  // is out of sight, and the text becomes a notification while Homie is not in front
+  attention(t, text) {
+    const seen = !!this.win?.isFocused() && this.visiblePanes().includes(t);
+    if (seen) return;
+    if (!t.unread) { t.unread = 1; this.badgesChanged(); this.push(); }
+    if (text) {
+      const n = new Notification({ title: t.label || t.title || 'Terminal', body: text, silent: t.muted });
+      n.on('click', () => { this.focus(); this.activate(t.id); });
+      n.show();
+    }
   }
 
   setMuted(t, muted) {
@@ -678,7 +723,7 @@ export class TabManager {
     const wc = tab.wc; if (!wc) return;
     const items = [];
     const sel = (p.selectionText || '').trim();
-    if (p.linkURL) {
+    if (p.linkURL && !isTerminalUrl(p.linkURL)) {
       items.push({ label: 'Open Link in New Tab', click: () => this.open(p.linkURL, { after: tab, background: true }) });
       items.push({ label: 'Copy Link', click: () => clipboard.writeText(p.linkURL) });
       items.push({ type: 'separator' });
@@ -795,6 +840,7 @@ export class TabManager {
       if (!fromUI(e)) return;
       Menu.buildFromTemplate([
         { label: 'New Tab', accelerator: 'Cmd+T', click: () => this.showPalette('new') },
+        { label: 'New Terminal', click: () => this.open('terminal:~') },
         { label: 'New Folder…', click: () => this.showPalette('folder', null) },
         { label: 'New Split View', click: () => this.showPalette('split') },
       ]).popup({ window: this.win, x: Math.round(x), y: Math.round(y) });
