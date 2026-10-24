@@ -21,19 +21,19 @@ for arch in $archs; do
   npx electron-forge package --arch "$arch" >/dev/null
   app="out/Homie-darwin-$arch/Homie.app"
   node scripts/sign.mjs "$app"
-  zip="dist/Homie-$version-mac-$arch.zip"; rm -f "$zip"
+  zip="dist/Homie-mac-$arch.zip"; rm -f "$zip"
   ditto -c -k --keepParent "$app" "$zip"
   say zipped "$zip ($(du -h "$zip" | cut -f1))"
 done
 
 if [ -n "${BUTLER_API_KEY:-}" ] && command -v butler >/dev/null && butler status "$target" >/dev/null 2>&1; then
-  for arch in $archs; do butler push "dist/Homie-$version-mac-$arch.zip" "$target:mac-$arch" --userversion "$version"; done
+  for arch in $archs; do butler push "dist/Homie-mac-$arch.zip" "$target:mac-$arch" --userversion "$version"; done
   say pushed "itch: https://jonasjohansson.itch.io/homie"
 else
   say note "no BUTLER_API_KEY in $skynet/.secrets.env (or no access to $target): zips built, nothing pushed"
 fi
 
 # GitHub release: one per version, assets replaced when rerun
-if gh release view "v$version" >/dev/null 2>&1; then gh release upload "v$version" dist/Homie-$version-mac-*.zip --clobber >/dev/null
-else gh release create "v$version" dist/Homie-$version-mac-*.zip --title "Homie $version" --notes "Signed macOS builds. Unzip, move Homie to Applications, open it." >/dev/null; fi
+if gh release view "v$version" >/dev/null 2>&1; then gh release upload "v$version" dist/Homie-mac-*.zip --clobber >/dev/null
+else gh release create "v$version" dist/Homie-mac-*.zip --title "Homie $version" --notes "Signed macOS builds. Unzip, move Homie to Applications, open it." >/dev/null; fi
 say released "https://github.com/jonasjohansson/homie/releases/tag/v$version"
