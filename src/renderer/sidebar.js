@@ -232,15 +232,20 @@ function renderCards() {
     const ag = c.querySelector('.agent'); ag.hidden = !p.agent; ag.classList.toggle('on', p.agent === 'on');
   });
   for (const c of existing.values()) c.remove();
-  // gutters between panes carry the resize drag
+  // gutters carry the resize drag: between columns (sideways), and between a page and its
+  // Claude below it (up and down)
+  let col = -1;
   guttersEl.replaceChildren(...panes.slice(0, -1).map((p, i) => {
-    const g = document.createElement('div'); g.className = 'gutter'; g.dataset.i = i;
-    const x = p.x + p.w, w = panes[i + 1].x - x;
-    Object.assign(g.style, { left: x + 'px', top: p.y + 'px', width: w + 'px', height: p.h + 'px' });
+    if (!p.stacked) col++;
+    const q = panes[i + 1], y = q.stacked, head = p.stacked ? panes[i - 1] : p;
+    const g = document.createElement('div'); g.className = y ? 'gutter y' : 'gutter';
+    const box = y ? { left: p.x, top: p.y + p.h, width: p.w, height: q.y - (p.y + p.h) } : { left: p.x + p.w, top: head.y, width: q.x - (p.x + p.w), height: p.y + p.h - head.y };
+    Object.assign(g.style, Object.fromEntries(Object.entries(box).map(([k, v]) => [k, v + 'px'])));
+    const at = (ev) => (y ? ev.clientY : ev.clientX), idx = y ? i : col, axis = y ? 'y' : 'x';
     g.addEventListener('mousedown', (e) => {
-      e.preventDefault(); document.body.classList.add('resizing'); homie.send('split-drag', 'start', i, e.clientX);
-      const move = (ev) => homie.send('split-drag', 'move', i, ev.clientX);
-      const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); document.body.classList.remove('resizing'); homie.send('split-drag', 'end', i, 0); };
+      e.preventDefault(); document.body.classList.add('resizing'); homie.send('split-drag', 'start', idx, at(e), axis);
+      const move = (ev) => homie.send('split-drag', 'move', idx, at(ev), axis);
+      const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); document.body.classList.remove('resizing'); homie.send('split-drag', 'end', idx, 0, axis); };
       window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
     });
     return g;

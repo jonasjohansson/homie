@@ -56,7 +56,7 @@ machine. Extensions install from the Chrome Web Store (Homie menu) and live in
 | Cmd+L | edit the address of the current tab |
 | Cmd+F, Cmd+G | find in page, next match (Shift for previous) |
 | Cmd+J | ask Claude about the page |
-| Cmd+Option+J | Claude beside this tab, in a pane of its own |
+| Cmd+Option+J | Claude for this tab, in a pane under it |
 | Cmd+1…9 | pinned tab by position |
 | Ctrl+Tab, Ctrl+Shift+Tab | next, previous tab |
 | Cmd+W | close a Today tab; a pinned tab goes back to its page, or unloads |
@@ -133,7 +133,7 @@ bookmarks.yml picks the model; it is Sonnet otherwise.
 ## A Claude beside each tab
 
 The Claude button in a page's toolbar (Cmd+Option+J) opens Claude Code in a pane
-beside the page. It belongs to that bookmark: switch to the bookmark and its Claude
+under the page; drag the line between them to share the height. It belongs to that bookmark: switch to the bookmark and its Claude
 is there, switch away and both go. It starts the first time you open it, keeps
 running while hidden, and ends with Cmd+W in it or when the page unloads.
 

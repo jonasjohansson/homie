@@ -230,23 +230,32 @@ export class TabManager {
   // --- split view: Arc's model, one axis, each pane its own card with its own toolbar --------
   // this.split = { panes: [Tab], factors: [], focus } stays while another tab is shown and
   // comes back when any member is activated. this.active is always the focused pane.
-  // A tab's Claude, while shown, sits to the right of its page, in a split or not.
+  // A tab's Claude, while shown, sits under its page, in a split or not.
   visiblePanes() {
     const a = this.active?.host || this.active;   // a focused Claude pane stands in for its page
     if (!a) return [];
     const base = this.split && this.split.panes.includes(a) ? this.split.panes : [a];
     return base.flatMap((p) => (p.companion && p.companionShown ? [p, p.companion] : [p]));
   }
+  // Columns side by side (split view); a page's Claude takes the bottom of the page's column,
+  // under a toolbar of its own. Rects come back in the order of panes.
   paneRects(card, panes) {
-    const n = panes.length;
-    if (n <= 1) return [card];
-    const pair = n === 2 && panes[1] === panes[0].companion, hf = panes[0].companionFactor || 0.5;
-    const f = pair ? [hf, 1 - hf] : this.split?.factors?.length === n ? this.split.factors : Array(n).fill(1);
+    const cols = panes.filter((p) => p.kind !== 'companion'), n = cols.length;
+    const f = n > 1 && this.split?.factors?.length === n ? this.split.factors : Array(n).fill(1);
     const sum = f.reduce((a, b) => a + b, 0), avail = card.width - GUTTER * (n - 1);
-    const rects = []; let x = card.x;
-    for (let i = 0; i < n; i++) {
+    const col = new Map(); let x = card.x;
+    cols.forEach((p, i) => {
       const w = i === n - 1 ? card.x + card.width - x : Math.round(avail * f[i] / sum);
-      rects.push({ x, y: card.y, width: Math.max(0, w), height: card.height }); x += w + GUTTER;
+      col.set(p, { x, y: card.y, width: Math.max(0, w), height: card.height }); x += w + GUTTER;
+    });
+    const rects = [];
+    for (let i = 0; i < panes.length; i++) {
+      const p = panes[i], c = col.get(p);
+      if (panes[i + 1] && panes[i + 1] === p.companion) {
+        const room = c.height - GUTTER - TOOLBAR, h = Math.max(0, Math.round(room * (p.companionFactor || 0.6)));
+        rects.push({ ...c, height: h }, { x: c.x, y: c.y + h + GUTTER + TOOLBAR, width: c.width, height: Math.max(0, room - h) });
+        i++;
+      } else rects.push(c);
     }
     return rects;
   }
@@ -285,15 +294,23 @@ export class TabManager {
   closePane() { const a = this.active; if (a && this.split?.panes.includes(a)) this.removePane(a, { closeTab: true }); }
   focusPane(i) { const p = this.split?.panes; if (!p || !this.visiblePanes().includes(this.active) || p.length < 2) return; const n = ((i % p.length) + p.length) % p.length; this.activate(p[n].id); }
   stepPane(d) { const p = this.split?.panes; if (!p) return; this.focusPane(p.indexOf(this.active) + d); }
-  setFactorsFromDrag(i, x) {
-    const rects = this.rects, panes = this.visiblePanes(); if (!rects || rects.length < 2 || rects.length !== panes.length) return;
-    const left = rects[i].x, right = rects[i + 1].x + rects[i + 1].width;
-    const w0 = Math.max(PANE_MIN, Math.min(right - GUTTER - PANE_MIN, x - left));
-    const widths = rects.map((r) => r.width); widths[i] = w0; widths[i + 1] = right - GUTTER - left - w0;
+  // axis x: the divider between columns i and i+1; axis y: between pane i and its Claude below it
+  setFactorsFromDrag(i, pos, axis = 'x') {
+    const rects = this.rects, panes = this.visiblePanes(); if (!rects || rects.length !== panes.length) return;
+    if (axis === 'y') {
+      const p = panes[i]; if (!p || panes[i + 1] !== p.companion) return;
+      const top = rects[i].y, room = rects[i + 1].y + rects[i + 1].height - top - GUTTER - TOOLBAR;
+      p.companionFactor = Math.max(120, Math.min(room - 120, pos - top)) / room;
+      return this.layout();
+    }
+    const cols = panes.filter((p) => p.kind !== 'companion');
+    if (!this.split || this.split.panes.length !== cols.length || !cols[i + 1]) return;
+    const cr = cols.map((p) => rects[panes.indexOf(p)]);
+    const left = cr[i].x, right = cr[i + 1].x + cr[i + 1].width;
+    const w0 = Math.max(PANE_MIN, Math.min(right - GUTTER - PANE_MIN, pos - left));
+    const widths = cr.map((r) => r.width); widths[i] = w0; widths[i + 1] = right - GUTTER - left - w0;
     const sum = widths.reduce((a, b) => a + b, 0);
-    if (panes.length === 2 && panes[1] === panes[0].companion) panes[0].companionFactor = widths[0] / sum;   // a page and its Claude keep their own divider
-    else if (this.split && this.split.panes.length === panes.length) this.split.factors = widths.map((w) => w / sum);
-    else return;
+    this.split.factors = widths.map((w) => w / sum);
     this.layout();
   }
   saveSplit() { state.split = this.split ? { urls: this.split.panes.map((t) => (t.kind === 'pinned' ? t.pinnedUrl : t.url)), factors: this.split.factors, focus: this.split.panes.indexOf(this.active) } : null; saveState(); }
@@ -511,7 +528,7 @@ export class TabManager {
     if (this.split?.panes.includes(t)) { this.split.focus = this.split.panes.indexOf(t); for (const p of this.split.panes) if (!p.loaded) p.load(); this.saveSplit(); }
     try { this.extensions?.selectTab(t.wc); } catch {}
     this.layout();
-    t.wc.focus();
+    if (this.win?.isFocused()) t.wc.focus();   // focusing a page raises the window; an agent switching tabs must not take you out of another app (the window's focus handler catches up)
     const page = t.host || t;
     if (page.kind !== 'internal') { state.activeUrl = page.kind === 'pinned' ? page.pinnedUrl : page.url; saveState(); }
     if (t === this.downloadsTab) this.downloads?.pushPage();
@@ -873,7 +890,7 @@ export class TabManager {
       today: this.today.map((t) => t.dto()),
       activeId: (a?.host || a)?.id ?? null,
       panes: (this.fullscreenTab ? [] : this.visiblePanes()).map((t, i) => { const r = (this.rects || [])[i]; const h = t.wc && !t.wc.isDestroyed() ? t.wc.navigationHistory : null; return r ? { id: t.id, x: r.x, y: r.y - TOOLBAR, w: r.width, h: r.height + TOOLBAR, url: t.url, theme: t.pageBg || t.themeColor || '', canGoBack: !!h?.canGoBack(), canGoForward: !!h?.canGoForward(), focused: t === a,
-        label: t.kind === 'companion' ? `Claude for ${t.host.label || t.host.title}` : '', agent: t.kind === 'companion' || t.kind === 'internal' || t.terminal ? '' : t.companionShown ? 'on' : 'off' } : null; }).filter(Boolean),
+        label: t.kind === 'companion' ? `Claude for ${t.host.label || t.host.title}` : '', stacked: t.kind === 'companion', agent: t.kind === 'companion' || t.kind === 'internal' || t.terminal ? '' : t.companionShown ? 'on' : 'off' } : null; }).filter(Boolean),
       splitIds: this.split ? this.split.panes.map((t) => t.id) : [],
       url: a?.url || '',
       theme: a?.pageBg || a?.themeColor || '',
@@ -901,10 +918,10 @@ export class TabManager {
       if (what === 'back') wc.navigationHistory.goBack(); else if (what === 'forward') wc.navigationHistory.goForward(); else if (what === 'reload') wc.reload();
       else if (what === 'address') this.showPalette('url'); else if (what === 'close') this.closePane(); else if (what === 'separate') this.removePane(t); else if (what === 'add-split') this.showPalette('split');
     });
-    ipcMain.on('split-drag', (e, phase, i, x) => {
+    ipcMain.on('split-drag', (e, phase, i, pos, axis) => {
       if (!fromUI(e)) return;
       if (phase === 'start') { this.sidebarDragging = true; this.layout(); }
-      else if (phase === 'move') { this.setFactorsFromDrag(Number(i), Number(x)); this.push(); }
+      else if (phase === 'move') { this.setFactorsFromDrag(Number(i), Number(pos), axis === 'y' ? 'y' : 'x'); this.push(); }
       else { this.sidebarDragging = false; this.layout(); this.saveSplit(); this.push(); }
     });
     ipcMain.on('close', (e, id) => fromUI(e) && this.close(id));
