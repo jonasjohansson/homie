@@ -2,6 +2,9 @@ const $ = (s) => document.querySelector(s);
 const groupsEl = $('#groups'), todayEl = $('#today'), todaySection = $('#todaySection'), dlRow = $('#dlrow'), cardsEl = $('#cards'), guttersEl = $('#gutters'), toolbarT = $('#toolbarT');
 let S = { groups: [], today: [], activeId: null, url: '', downloads: null };
 let renaming = null, drag = null, renderAfterDrag = false, lastActive = null, endDrag = null, drag_overPage = false;
+// The rail is this page again, icons only, floating over the page's left edge while the sidebar is hidden.
+const RAIL = new URLSearchParams(location.search).has('rail');
+if (RAIL) document.body.classList.add('rail');
 
 const FOLDER = '<svg width="18" height="16" viewBox="0 0 18 16"><path d="M1 3.2A1.7 1.7 0 0 1 2.7 1.5h3.9l1.9 1.9h6.8A1.7 1.7 0 0 1 17 5.1v7.7a1.7 1.7 0 0 1-1.7 1.7H2.7A1.7 1.7 0 0 1 1 12.8z" fill="currentColor"/><path d="M1 6.2h16v6.6a1.7 1.7 0 0 1-1.7 1.7H2.7A1.7 1.7 0 0 1 1 12.8z" fill="#fff" opacity=".18"/></svg>';
 // the open folder, for an expanded group: the front flap tilts out
@@ -13,13 +16,16 @@ homie.on('state', (s) => {
   r.setProperty('--w', s.sidebarWidth + 'px');
   const tint = (s.tint || '').split(/\s+/).filter(Boolean);
   if (tint.length) { r.setProperty('--tint-top', tint[0]); r.setProperty('--tint-bottom', tint[1] || tint[0]); } else { r.removeProperty('--tint-top'); r.removeProperty('--tint-bottom'); }
-  document.body.classList.toggle('sidebar-hidden', !!s.sidebarHidden);
+  document.body.classList.toggle('sidebar-hidden', !RAIL && !!s.sidebarHidden);
   render();
 });
 homie.on('sidebar-width', (w) => document.documentElement.style.setProperty('--w', w + 'px'));
 homie.on('start-rename', (id) => startRename(id));
 homie.on('start-rename-group', (name) => startRenameGroup(name));
 homie.on('row-drag-end', () => { if (endDrag) endDrag(); });   // the page took the drop
+homie.on('rail', (on) => document.body.classList.toggle('in', !!on));
+// with the sidebar hidden, the pointer in the margin left of the page brings up the rail
+if (!RAIL) document.addEventListener('mousemove', (e) => { if (S.sidebarHidden && e.clientX < 10 && e.clientY > 48) homie.send('rail'); });
 
 function render() {
   if (renaming) return;
@@ -48,7 +54,7 @@ function render() {
   for (const sec of sections.values()) sec.remove();
   reconcile(todayEl, S.today, null);
   todaySection.classList.toggle('has', S.today.length > 0 || !!todayEl.querySelector('.tab.leave'));
-  renderCards();
+  if (!RAIL) renderCards();
   if (S.activeId !== lastActive) { lastActive = S.activeId; const act = document.querySelector('.tab.active'); if (act) act.scrollIntoView({ block: 'nearest' }); }   // only on a switch, never while scrolling
   const d = S.downloads, meta = dlRow.querySelector('.meta');
   dlRow.classList.toggle('active', !!S.downloadsActive);
@@ -105,6 +111,7 @@ function row(t) {
   const label = document.createElement('span'); label.className = 'label'; label.textContent = t.kind === 'pinned' ? t.label : (t.title || host(t.url) || t.url);
   if (t.away) { const cur = document.createElement('span'); cur.className = 'cur'; cur.textContent = ' / ' + (t.title || host(t.url)); label.append(cur); }   // Arc: "name / page title" while away
   label.title = t.url;
+  if (RAIL) el.title = label.textContent;   // the rail has no labels, so the row says its name on hover
   const badge = document.createElement('span'); badge.className = 'badge'; if (t.unread > 0) badge.textContent = t.unread > 99 ? '99+' : String(t.unread);
   const x = document.createElement('button'); x.className = 'x'; x.textContent = t.away ? '↺' : '×'; x.title = t.away ? 'Back to the pinned page' : t.kind === 'pinned' ? 'Unload' : 'Close';   // Arc: × unloads a pinned tab, ↺ only while it is away
   x.addEventListener('click', (e) => { e.stopPropagation(); homie.send('close', t.id); });
@@ -112,7 +119,7 @@ function row(t) {
   el.onclick = (e) => homie.send('activate', Number(el.dataset.id), !!e.altKey);   // Arc: Option-click opens the tab in a split
   el.onauxclick = (e) => { if (e.button === 1) homie.send('close', Number(el.dataset.id)); };
   el.oncontextmenu = (e) => { e.preventDefault(); homie.send('context', Number(el.dataset.id), e.clientX, e.clientY); };
-  if (t.kind !== 'internal') el.ondblclick = () => startRename(Number(el.dataset.id));   // Arc: any tab renames
+  if (t.kind !== 'internal' && !RAIL) el.ondblclick = () => startRename(Number(el.dataset.id));   // Arc: any tab renames
   return el;
 }
 
@@ -125,6 +132,7 @@ function isLight(col) {
 function host(u) { if (/^terminal:/i.test(u)) return u.replace(/^terminal:(\/\/)?/i, '') || '~'; try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u === 'homie://downloads' ? 'Downloads' : ''; } }
 
 function startRenameGroup(name) {
+  if (RAIL) return;
   const sec = document.querySelector(`section.group[data-name="${CSS.escape(name)}"]`); if (!sec) return;
   const label = sec.querySelector('h2 .name');
   const input = document.createElement('input'); input.className = 'rename'; input.value = name;
@@ -139,7 +147,7 @@ function startRenameGroup(name) {
 // Arc's model: drag a Today tab up into a folder to pin it, a pinned tab down into Today to
 // unpin it, or anywhere to reorder. The page stays loaded either way (main moves the Tab).
 document.addEventListener('mousedown', (e) => {
-  if (e.button !== 0 || renaming) return;
+  if (e.button !== 0 || renaming || RAIL) return;
   const el = e.target.closest('.tab[data-id]'); if (!el || e.target.closest('.x') || el.classList.contains('leave')) return;
   const id = Number(el.dataset.id), x0 = e.clientX, y0 = e.clientY;
   const r = el.getBoundingClientRect();
@@ -188,6 +196,7 @@ document.addEventListener('mousedown', (e) => {
 });
 
 function startRename(id) {
+  if (RAIL) return;
   const el = document.querySelector(`.tab[data-id="${id}"]`); if (!el) return;
   const label = el.querySelector('.label');
   const input = document.createElement('input'); input.className = 'rename'; input.value = label.textContent;

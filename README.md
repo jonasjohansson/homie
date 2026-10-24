@@ -71,7 +71,7 @@ machine. Extensions install from the Chrome Web Store (Homie menu) and live in
 | Ctrl+M | mute the tab (Cmd+M minimizes, as everywhere on the Mac) |
 | Cmd+Shift+C | copy the page address |
 | Cmd+Shift+O | open the page in Chrome |
-| Cmd+Shift+S | hide or show the sidebar (drag its edge to resize) |
+| Cmd+Shift+S | hide or show the sidebar (drag its edge to resize); hidden, the window's left edge brings up its icons |
 | Cmd+, | open bookmarks.yml |
 | right-click a tab | pin, mute, badge, rename, reload, reset, unpin, close |
 | double-click a pinned tab | rename |

@@ -123,6 +123,19 @@ body.dragging { cursor: default; }
 
 #handle { position: absolute; top: 0; right: -3px; width: 6px; height: 100%; cursor: col-resize; -webkit-app-region: no-drag; }
 
+/* --- the rail: the same sidebar, icons only, over the page's left edge while the sidebar is hidden.
+   Main shows the view at the edge and says 'in'; the strip slides out from the edge with the sidebar's curve. */
+body.rail { opacity: 0; transform: translateX(-100%); box-shadow: inset -1px 0 0 var(--line); }
+body.rail.in { opacity: 1; transform: none; transition: opacity var(--t-sidebar) var(--ease-out), transform var(--t-sidebar) var(--ease-out); }
+body.rail #sidebar { width: 100%; }
+body.rail :is(#top, #cards, #gutters, #handle, #clearToday, h2 .name, h2 button, .tab .label, .tab .x, #dlrow .meta) { display: none; }
+body.rail #list { padding-top: 8px; }
+body.rail h2, body.rail .tab, body.rail #newTab { margin: 0 8px var(--pitch); padding: 0; justify-content: center; }
+body.rail .tab, body.rail #newTab { grid-template-columns: var(--icon); position: relative; }
+body.rail .tab .badge { position: absolute; top: 6px; right: 6px; min-width: 0; width: 7px; height: 7px; padding: 0; font-size: 0; }   /* the count becomes a dot */
+body.rail #divider { margin: -2px 12px 3px; background: var(--line); }   /* pinned above, Today below */
+body.rail #bottom { height: auto; flex-direction: column; gap: 4px; padding: 6px 0 10px; }
+
 /* --- the cards: one per pane, toolbar on top, the page view sits over the rest -------------
    Main sends each pane's rect; a split shows several cards with a gutter between them. */
 .card { position: absolute; border-radius: var(--radius); background: var(--card); color: var(--card-fg); transition: left var(--t-sidebar) var(--ease-out), top var(--t-sidebar) var(--ease-out), width var(--t-sidebar) var(--ease-out), height var(--t-sidebar) var(--ease-out); }

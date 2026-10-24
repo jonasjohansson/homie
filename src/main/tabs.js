@@ -2,7 +2,7 @@
 // WebContentsView per tab on the right; only the active tab's view is visible.
 // Pinned tabs come from bookmarks.yml and are keyed by their pinned URL; Today tabs
 // are everything else and live in state.json between launches, unloaded until clicked.
-import { app, BrowserWindow, WebContentsView, Menu, Notification, clipboard, shell, ipcMain, nativeTheme } from 'electron';
+import { app, BrowserWindow, WebContentsView, Menu, Notification, clipboard, shell, ipcMain, nativeTheme, screen } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -21,6 +21,7 @@ const SIDEBAR_MIN = 180, SIDEBAR_MAX = 480;
 const TOOLBAR = 32, MARGIN = 10, RADIUS = 12, GUTTER = 10, PANE_MIN = 240, MAX_PANES = 4;
 const OVERLAY_INSET = 12, OVERLAY_RADIUS = 10;   // a page's Claude: a small terminal in the page's corner
 const PALETTE_W = 640;
+const RAIL_W = 52;   // the rail: the sidebar's icons alone, a 36 pt pill and 8 pt either side
 const SIDEBAR_MS = 90;   // Arc: the card edge settles in 60 to 90 ms with an ease-out
 const STAGGER_MS = 600;
 // a terminal row's favicon: its own dark tile, so it reads on the light and the dark sidebar
@@ -204,6 +205,14 @@ export class TabManager {
     this.palette.webContents.on('context-menu', (e) => e.preventDefault());
     // an answer stays up while you read and select in it; a click elsewhere in Homie puts it away
     this.palette.webContents.on('blur', () => { if (this.paletteMode === 'ask' && this.palette.getVisible?.() !== false && this.win?.isFocused()) this.hidePalette(); });
+    // the rail: with the sidebar hidden, the pointer at the window's left edge brings up its icons over the page
+    this.rail = new WebContentsView({ webPreferences: ui });
+    this.rail.setBackgroundColor('#00000000');   // the chrome paints it, so it can slide in
+    this.rail.setBorderRadius?.(RADIUS);
+    this.rail.setVisible(false);
+    this.win.contentView.addChildView(this.rail);
+    this.rail.webContents.loadFile(path.join(__dirname, '..', 'renderer', 'sidebar.html'), { query: { rail: '1' } });
+    this.rail.webContents.on('context-menu', (e) => e.preventDefault());
 
     this.win.on('resize', () => { this.layout(); this.saveBounds(); this.push(); });   // the chrome's cards follow the pane rects
     this.win.on('move', () => this.saveBounds());
@@ -254,6 +263,7 @@ export class TabManager {
     const pw = Math.min(PALETTE_W, pr.width - 40);
     const py = Math.max(pr.y + 20, Math.min(pr.y + Math.round(pr.height * 0.33) - 24, pr.y + pr.height - this.paletteHeight - 20));   // a tall bar (an answer) stays inside the pane
     this.palette.setBounds({ x: pr.x + Math.round((pr.width - pw) / 2), y: py, width: pw, height: this.paletteHeight });
+    if (this.railShown) { if (!this.sidebarHidden || this.fullscreenTab) this.hideRail(); else this.rail.setBounds({ x: card.x, y: card.y, width: RAIL_W, height: card.height }); }
     this.rects = rects;
     return rects[focus] || card;
   }
@@ -356,7 +366,31 @@ export class TabManager {
   // the floating Claudes go above every page, the command bar above them
   raiseOverlays() {
     for (const t of this.tabs.values()) if (t.kind === 'companion' && t.loaded && t.host.companionShown) { this.win.contentView.removeChildView(t.view); this.win.contentView.addChildView(t.view); }
+    if (this.railShown) { this.win.contentView.removeChildView(this.rail); this.win.contentView.addChildView(this.rail); }
     this.raisePalette();
+  }
+
+  // The rail stays while the pointer is over it or the edge strip beside it, or one of its menus is open;
+  // a quarter second away and it goes.
+  showRail() {
+    if (this.railShown || !this.sidebarHidden || this.fullscreenTab || !this.win) return;
+    this.railShown = true; this.railAway = 0;
+    this.layout(); this.raiseOverlays();
+    this.rail.setVisible(true); this.rail.webContents.send('rail', true);
+    clearInterval(this.railTimer);
+    this.railTimer = setInterval(() => {
+      const p = screen.getCursorScreenPoint(), c = this.win.getContentBounds(), r = this.rail.getBounds();
+      const x = p.x - c.x, y = p.y - c.y, over = x >= 0 && x < r.x + r.width + 8 && y >= 0 && y < c.height;
+      this.railAway = over || this.railHold ? 0 : this.railAway + 1;
+      if (this.railAway >= 3) this.hideRail();
+    }, 80);
+  }
+  hideRail() { if (!this.railShown) return; this.railShown = false; clearInterval(this.railTimer); this.rail.setVisible(false); this.rail.webContents.send('rail', false); }
+  // a menu the rail asks for opens at the rail's offset and holds the rail up until it closes
+  popupAt(e, x, y) {
+    const rail = !!e && e.sender === this.rail?.webContents, o = rail ? this.rail.getBounds() : { x: 0, y: 0 };
+    if (rail) this.railHold = true;
+    return { window: this.win, x: Math.round(x) + o.x, y: Math.round(y) + o.y, callback: () => { if (rail) this.railHold = false; } };
   }
 
   showPalette(mode, arg) {
@@ -662,7 +696,7 @@ export class TabManager {
     for (const t of [...g.tabs]) this.moveTab(t.id, null, this.today.length);   // Arc keeps the tabs: they land in Today
     this.bookmarks.removeGroup(name);
   }
-  groupContextMenu(name, x, y) {
+  groupContextMenu(name, x, y, e) {
     const i = this.groups.findIndex((g) => g.name === name); if (i < 0) return;
     const items = [
       { label: 'Rename', click: () => this.sendUI('start-rename-group', name) },
@@ -676,7 +710,7 @@ export class TabManager {
       { type: 'separator' },
       { label: 'Delete Folder', click: () => this.deleteGroup(name) },
     ];
-    Menu.buildFromTemplate(items).popup({ window: this.win, x: Math.round(x), y: Math.round(y) });
+    Menu.buildFromTemplate(items).popup(this.popupAt(e, x, y));
   }
 
   toggleSidebar() { this.sidebarHidden = !this.sidebarHidden; this.animateLayout(); this.push(true); }   // layout first so the snapshot carries the new pane rects
@@ -802,7 +836,7 @@ export class TabManager {
   }
 
   // --- context menus ------------------------------------------------------------------
-  tabContextMenu(id, x, y) {
+  tabContextMenu(id, x, y, e) {
     const t = this.tabs.get(id); if (!t) return;
     const items = [];
     if (t.kind === 'today') {
@@ -838,7 +872,7 @@ export class TabManager {
     } else {
       items.push({ label: 'Close', click: () => this.close(id) });
     }
-    Menu.buildFromTemplate(items).popup({ window: this.win, x: Math.round(x), y: Math.round(y) });
+    Menu.buildFromTemplate(items).popup(this.popupAt(e, x, y));
   }
 
   terminalContextMenu(tab) {
@@ -913,7 +947,7 @@ export class TabManager {
 
   // --- sidebar protocol ---------------------------------------------------------------
   sendUI(ch, ...args) {
-    for (const v of [this.sidebar, this.palette]) if (v && !v.webContents.isDestroyed()) v.webContents.send(ch, ...args);
+    for (const v of [this.sidebar, this.palette, this.rail]) if (v && !v.webContents.isDestroyed()) v.webContents.send(ch, ...args);
   }
 
   push(now = false) {
@@ -945,7 +979,7 @@ export class TabManager {
   }
 
   wireIpc() {
-    const fromUI = (e) => e.sender === this.sidebar?.webContents || e.sender === this.palette?.webContents;
+    const fromUI = (e) => e.sender === this.sidebar?.webContents || e.sender === this.palette?.webContents || e.sender === this.rail?.webContents;
     ipcMain.on('activate', (e, id, alt) => { if (!fromUI(e)) return; if (alt) this.splitWith(id, { duplicate: true }); else this.activate(id); });   // Arc: Option-click adds a split
     ipcMain.on('split-with', (e, id) => fromUI(e) && this.splitWith(Number(id)));
     ipcMain.on('pane', (e, id, what) => {
@@ -964,7 +998,7 @@ export class TabManager {
     });
     ipcMain.on('close', (e, id) => fromUI(e) && this.close(id));
     ipcMain.on('navigate', (e, text, opts) => fromUI(e) && this.navigate(text, opts || {}));
-    ipcMain.on('context', (e, id, x, y) => fromUI(e) && this.tabContextMenu(id, x, y));
+    ipcMain.on('context', (e, id, x, y) => fromUI(e) && this.tabContextMenu(id, x, y, e));
     ipcMain.on('nav', (e, what) => {
       if (!fromUI(e) || !this.active?.wc) return;
       const wc = this.active.wc;
@@ -984,7 +1018,7 @@ export class TabManager {
     });
     ipcMain.on('pin-new-group', (e, id, name) => fromUI(e) && name && this.pin(id, String(name).trim()));
     ipcMain.on('move', (e, id, group, index) => fromUI(e) && this.moveTab(Number(id), group == null ? null : String(group), Number(index)));
-    ipcMain.on('group-context', (e, name, x, y) => fromUI(e) && this.groupContextMenu(String(name), x, y));
+    ipcMain.on('group-context', (e, name, x, y) => fromUI(e) && this.groupContextMenu(String(name), x, y, e));
     ipcMain.on('collapse', (e, name) => fromUI(e) && this.toggleCollapsed(String(name)));
     ipcMain.on('group-icon', (e, name, icon) => fromUI(e) && this.bookmarks.setGroupField(String(name), 'icon', String(icon || '').trim().slice(0, 4), ''));
     ipcMain.on('reset', (e, id) => { if (!fromUI(e)) return; const t = this.tabs.get(id); if (t?.kind === 'pinned') { if (t.away) t.load(t.pinnedUrl); this.activate(id); } });
@@ -995,7 +1029,7 @@ export class TabManager {
         { label: 'New Terminal', click: () => this.open('terminal:~') },
         { label: 'New Folder…', click: () => this.showPalette('folder', null) },
         { label: 'New Split View', click: () => this.showPalette('split') },
-      ]).popup({ window: this.win, x: Math.round(x), y: Math.round(y) });
+      ]).popup(this.popupAt(e, x, y));
     });
     ipcMain.on('rename-group', (e, oldName, newName) => fromUI(e) && this.bookmarks.renameGroup(String(oldName), String(newName || '').trim()));
     ipcMain.on('new-group', (e, name, index) => fromUI(e) && name && this.bookmarks.addGroup(String(name).trim(), index == null ? undefined : Number(index)));
@@ -1008,6 +1042,7 @@ export class TabManager {
     });
     ipcMain.on('show-downloads', (e) => fromUI(e) && this.showDownloads());
     ipcMain.on('toggle-sidebar', (e) => fromUI(e) && this.toggleSidebar());
+    ipcMain.on('rail', (e) => e.sender === this.sidebar?.webContents && this.showRail());
     ipcMain.on('palette', (e, mode, arg) => fromUI(e) && this.showPalette(mode, arg));
     ipcMain.on('palette-close', (e) => fromUI(e) && this.hidePalette());
     ipcMain.on('ask', (e, id, question, history) => { if (fromUI(e) && question) this.asker?.ask(id, String(question), history, (ch, ...a) => { if (!this.palette.webContents.isDestroyed()) this.palette.webContents.send(ch, ...a); }); });
