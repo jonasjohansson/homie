@@ -26,7 +26,7 @@ const RAIL_W = 52;   // the rail: the sidebar's icons alone, a 36 pt pill and 8 
 // sidebar, the rail docked beside the page, then nothing docked and the rail or the full sidebar
 // floating over the page while the pointer is at the window's left edge
 const SIDEBAR_MODES = ['full', 'rail', 'peek-rail', 'peek-full'];
-const SIDEBAR_MS = 90;   // Arc: the card edge settles in 60 to 90 ms with an ease-out
+const SIDEBAR_MS = 220;   // Arc settles in 60 to 90 ms; slower reads calmer when the sidebar changes style (--t-sidebar)
 const STAGGER_MS = 600;
 // a terminal row's favicon: its own dark tile, so it reads on the light and the dark sidebar
 const TERMINAL_ICON = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" rx="3.5" fill="#282c34"/><path d="M4.5 5l3 3-3 3M8.5 11h3" fill="none" stroke="#c8ccd4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
@@ -387,10 +387,11 @@ export class TabManager {
   placeRail(card) {
     if (this.railDocked) {
       this.rail.setBounds({ x: 0, y: card.y, width: RAIL_W, height: card.height });
-      if (!this.railShown) { this.railShown = true; this.raiseOverlays(); this.rail.setVisible(true); this.railLook('docked'); }
+      if (!this.railShown) { clearTimeout(this.railFade); this.railFade = null; this.railShown = true; this.raiseOverlays(); this.rail.setVisible(true); this.railLook('docked'); }
       return;
     }
     if (!this.sidebarHidden || this.fullscreenTab) return this.hideRail();
+    if (this.railFade) return;   // the docked rail is still fading where it was
     // sized while out of sight too: a hidden view takes a new size late, and would slide in at the old one
     this.rail.setBounds({ x: card.x, y: card.y, width: this.sidebarMode === 'peek-full' ? state.sidebarWidth : RAIL_W, height: card.height });
   }
@@ -399,6 +400,7 @@ export class TabManager {
   showRail() {
     if (this.railShown || !this.sidebarHidden || this.fullscreenTab || !this.win) return;
     this.railShown = true; this.railAway = 0;
+    clearTimeout(this.railFade); this.railFade = null;   // the docked rail was still fading: it floats now instead
     this.layout(); this.raiseOverlays();
     this.rail.setVisible(true); this.railLook(this.sidebarMode === 'peek-full' ? 'wide' : 'float');
     clearInterval(this.railTimer);
@@ -409,8 +411,14 @@ export class TabManager {
       if (this.railAway >= 3) this.hideRail();
     }, 80);
   }
-  hideRail() { if (!this.railShown) return; this.railShown = false; clearInterval(this.railTimer); this.rail.setVisible(false); this.railLook(''); }
-  railLook(look) { this.railNow = look; this.rail.webContents.send('rail', look); }   // '' out of sight, 'float', 'wide' (the whole sidebar, floating) or 'docked'
+  hideRail() {
+    if (!this.railShown) return; this.railShown = false; clearInterval(this.railTimer);
+    if (this.railNow !== 'docked') { this.rail.setVisible(false); this.railLook(''); return; }
+    // the docked rail fades out with the sidebar's change of style, then goes
+    this.railLook('docked-out');
+    this.railFade = setTimeout(() => { this.railFade = null; if (!this.railShown) { this.rail.setVisible(false); this.railLook(''); this.layout(); } }, SIDEBAR_MS);
+  }
+  railLook(look) { this.railNow = look; this.rail.webContents.send('rail', look); }   // '' out of sight, 'float', 'wide' (the whole sidebar, floating), 'docked' or 'docked-out' (fading)
   // a menu the rail asks for opens at the rail's offset and holds the rail up until it closes
   popupAt(e, x, y) {
     const rail = !!e && e.sender === this.rail?.webContents, o = rail ? this.rail.getBounds() : { x: 0, y: 0 };
@@ -1078,9 +1086,11 @@ export class TabManager {
     ipcMain.on('set-url', (e, id, url) => { if (!fromUI(e)) return; const t = this.tabs.get(id); const r = resolveInput(String(url || '')); if (t?.kind === 'pinned' && r && !r.includes('google.com/search?q=')) this.repin(t, r); });
     ipcMain.on('sidebar-drag', (e, phase, width) => {
       if (!fromUI(e)) return;
-      if (phase === 'start') { this.sidebarDragging = true; this.layout(); }
+      // the floating sidebar resizes over the page, which stays; it holds itself up until the drag ends
+      const floating = e.sender === this.rail?.webContents;
+      if (phase === 'start') { if (floating) this.railHold = true; else this.sidebarDragging = true; this.layout(); }
       else if (phase === 'move') { state.sidebarWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(width))); this.layout(); this.sendUI('sidebar-width', state.sidebarWidth); this.push(); }
-      else { this.sidebarDragging = false; this.setSidebarWidth(width); this.push(); }
+      else { this.sidebarDragging = false; if (floating) this.railHold = false; this.setSidebarWidth(width); this.push(); }
     });
     ipcMain.on('show-downloads', (e) => fromUI(e) && this.showDownloads());
     ipcMain.on('toggle-sidebar', (e) => fromUI(e) && this.toggleSidebar());

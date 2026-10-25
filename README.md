@@ -83,7 +83,7 @@ offers to save or update the login (in Homie only, never back to Chrome).
 | Ctrl+M | mute the tab (Cmd+M minimizes, as everywhere on the Mac) |
 | Cmd+Shift+C | copy the page address |
 | Cmd+Shift+O | open the page in Chrome |
-| Cmd+S, Cmd+Shift+S | the next sidebar style, as the sidebar button: full (drag its edge to resize), icons only, hidden with the icons at the window's left edge, hidden with the whole sidebar there |
+| Cmd+S, Cmd+Shift+S | the next sidebar style, as the sidebar button: full, icons only, hidden with the icons at the window's left edge, hidden with the whole sidebar there; drag the full sidebar's edge to resize it, docked or floating |
 | Cmd+, | open bookmarks.yml |
 | right-click a tab | pin, mute, badge, rename, reload, reset, unpin, close |
 | double-click a pinned tab | rename |

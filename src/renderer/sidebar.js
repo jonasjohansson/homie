@@ -28,8 +28,8 @@ homie.on('sidebar-width', (w) => document.documentElement.style.setProperty('--w
 homie.on('start-rename', (id) => startRename(id));
 homie.on('start-rename-group', (name) => startRenameGroup(name));
 homie.on('row-drag-end', () => { if (endDrag) endDrag(); });   // the page took the drop
-// main says how the rail shows: '' (out of sight), 'float', 'wide' (the whole sidebar, floating) or 'docked'
-homie.on('rail', (look) => { const b = document.body.classList; b.toggle('in', !!look); b.toggle('wide', look === 'wide'); b.toggle('docked', look === 'docked'); if (!look) closeDlPop(); });
+// main says how the rail shows: '' (out of sight), 'float', 'wide' (the whole sidebar, floating), 'docked' or 'docked-out'
+homie.on('rail', (look) => { const b = document.body.classList; b.toggle('in', !!look && look !== 'docked-out'); b.toggle('wide', look === 'wide'); b.toggle('docked', look.startsWith('docked')); if (!look) closeDlPop(); });
 // with the sidebar hidden, the pointer in the margin left of the page brings up the rail
 if (!RAIL) document.addEventListener('mousemove', (e) => { if (S.sidebarHidden && e.clientX < 10 && e.clientY > 48) homie.send('rail'); });
 
