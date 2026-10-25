@@ -141,9 +141,11 @@ async function fill(choice, uEl, pEl) {
   if (pEl && !pEl.value) { const pw = await ipcRenderer.invoke('homie:pw-fill', choice.username, choice.site).catch(() => null); if (pw != null) setValue(pEl, pw); }
 }
 const hidePicker = () => { picker?.remove(); picker = null; };
-function attachPicker(field, choices, pick) {
+// first, when given: a check that fills instead (true), so the list is not needed
+function attachPicker(field, choices, pick, first) {
   const show = () => {
     hidePicker();
+    if (first?.()) return;
     const r = field.getBoundingClientRect();
     const { host, box } = floating({ left: `${Math.round(r.left)}px`, top: `${Math.round(r.bottom + 4)}px`, minWidth: `${Math.round(Math.max(r.width, 200))}px` });
     for (const c of choices.slice(0, 10)) box.append(button((c.username || '(no username)') + (c.site ? ` · ${c.site}` : ''), () => { hidePicker(); pick(c); }));
@@ -165,10 +167,15 @@ async function scanLogins() {
   if (pws.length === 1 && !seen.has(pws[0])) {   // two or more is a sign-up or change-password form
     const pw = pws[0], u = userFieldFor(pw);
     seen.add(pw);
-    if (u?.value && users.includes(u.value)) return fill({ username: u.value }, null, pw);
-    if (users.length === 1) return fill({ username: users[0] }, u, pw);
+    const typed = u?.value;
+    if (typed && users.includes(typed)) return fill({ username: typed }, null, pw);
+    if (!typed && users.length === 1) return fill({ username: users[0] }, u, pw);
     if (!u && last && users.includes(last)) return fill({ username: last }, null, pw);   // the password page after a username page
-    return attachPicker(u || pw, choices, (c) => fill(c, u, pw));
+    // otherwise decide when a field is focused: sites often set the username after load (Discord),
+    // without a DOM change, and re-render the form, so the username field is found again then
+    const pick = (c) => fill(c, userFieldFor(pw), pw);
+    if (u) attachPicker(u, choices, pick);
+    return attachPicker(pw, choices, pick, () => { const now = userFieldFor(pw)?.value; return !!(now && users.includes(now) && !pw.value && (fill({ username: now }, null, pw), true)); });
   }
   const id = !pws.length && identifierField();
   if (id && !seen.has(id)) {
