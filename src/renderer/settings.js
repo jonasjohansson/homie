@@ -28,6 +28,7 @@ $('#tintTop').addEventListener('change', tint); $('#tintBottom').addEventListene
 $('#tintReset').addEventListener('click', () => send('tint', ''));
 $('#defaultBrowser').addEventListener('click', () => send('default_browser', true));
 $('#file').addEventListener('click', () => homie.send('settings-file'));
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') homie.send('settings-close'); });   // back to the tab you came from
 
 homie.on('settings', (d) => { D = d; render(); });
 homie.invoke('settings-get').then((d) => { if (d) { D = d; render(); } });

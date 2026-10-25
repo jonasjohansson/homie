@@ -600,13 +600,22 @@ export class TabManager {
   }
 
   // --- Settings: a page like Downloads; shared settings go to bookmarks.yml, the rest stay on this Mac ---
+  // Cmd+, and the gear open Settings, and close it when it is in front; Escape on the page closes it too
   showSettings() {
+    if (this.settingsTab && this.active === this.settingsTab) return this.hideSettings();
+    this.beforeSettings = this.active?.host || this.active;
     if (!this.settingsTab) {
       this.settingsTab = new Tab(this, { kind: 'internal', url: 'homie://settings', label: 'Settings', title: 'Settings', page: path.join(__dirname, '..', 'renderer', 'settings.html') });
       this.tabs.set(this.settingsTab.id, this.settingsTab);
     }
     this.focus();
     this.activate(this.settingsTab.id);
+  }
+  hideSettings() {   // back to the tab Settings was opened from
+    const t = this.settingsTab, back = this.beforeSettings; this.beforeSettings = null;
+    if (!t?.loaded) return;
+    this.close(t.id);
+    if (back && back !== t && this.tabs.has(back.id)) this.activate(back.id);
   }
   settingsData() {
     const b = this.bookmarks;
@@ -1144,6 +1153,7 @@ export class TabManager {
     ipcMain.handle('settings-get', (e) => (fromSettings(e) ? this.settingsData() : null));
     ipcMain.on('settings-set', (e, key, value) => { if (!fromSettings(e)) return; try { this.setSetting(String(key), value); } catch (err) { console.error('settings:', err.message); } });   // a bad bookmarks.yml is no reason for a crash dialog
     ipcMain.on('settings-file', (e) => { if (fromSettings(e)) shell.openPath(this.bookmarks.realPath); });
+    ipcMain.on('settings-close', (e) => { if (fromSettings(e)) this.hideSettings(); });
     ipcMain.on('toggle-sidebar', (e) => fromUI(e) && this.toggleSidebar());
     ipcMain.on('rail', (e) => e.sender === this.sidebar?.webContents && this.showRail());
     ipcMain.on('palette', (e, mode, arg) => fromUI(e) && this.showPalette(mode, arg));

@@ -102,7 +102,7 @@ offers to save or update the login (in Homie only, never back to Chrome).
 | Cmd+Shift+C | copy the page address |
 | Cmd+Shift+O | open the page in Chrome |
 | Cmd+S, Cmd+Shift+S | the next sidebar style, as the sidebar button: full, icons only, hidden with the icons at the window's left edge, hidden with the whole sidebar there; drag the full sidebar's edge to resize it, docked or floating |
-| Cmd+, | Settings (homie://settings) |
+| Cmd+, | Settings (homie://settings); again, or Escape on the page, goes back |
 | right-click a tab | pin, mute, badge, rename, reload, reset, unpin, close |
 | double-click a pinned tab | rename |
 
