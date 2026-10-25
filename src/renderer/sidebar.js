@@ -16,14 +16,20 @@ homie.on('state', (s) => {
   r.setProperty('--w', s.sidebarWidth + 'px');
   const tint = (s.tint || '').split(/\s+/).filter(Boolean);
   if (tint.length) { r.setProperty('--tint-top', tint[0]); r.setProperty('--tint-bottom', tint[1] || tint[0]); } else { r.removeProperty('--tint-top'); r.removeProperty('--tint-bottom'); }
-  document.body.classList.toggle('sidebar-hidden', !RAIL && !!s.sidebarHidden);
+  document.body.classList.toggle('sidebar-hidden', !RAIL && (s.sidebarMode || 'full') !== 'full');   // the rail docked or nothing: this page draws only the cards
+  document.body.classList.toggle('sidebar-rail', !RAIL && s.sidebarMode === 'rail');
   render();
+  const next = NEXT_SIDEBAR[s.sidebarMode] || NEXT_SIDEBAR.full;
+  for (const b of document.querySelectorAll('#toggle, .toggle2')) b.title = next + ' (Cmd+S)';
 });
+// what the sidebar button does next, from each of the four states
+const NEXT_SIDEBAR = { full: 'Icons only', rail: 'Hide sidebar, icons at the edge', 'peek-rail': 'Hide sidebar, the whole sidebar at the edge', 'peek-full': 'Show sidebar' };
 homie.on('sidebar-width', (w) => document.documentElement.style.setProperty('--w', w + 'px'));
 homie.on('start-rename', (id) => startRename(id));
 homie.on('start-rename-group', (name) => startRenameGroup(name));
 homie.on('row-drag-end', () => { if (endDrag) endDrag(); });   // the page took the drop
-homie.on('rail', (on) => document.body.classList.toggle('in', !!on));
+// main says how the rail shows: '' (out of sight), 'float', 'wide' (the whole sidebar, floating) or 'docked'
+homie.on('rail', (look) => { const b = document.body.classList; b.toggle('in', !!look); b.toggle('wide', look === 'wide'); b.toggle('docked', look === 'docked'); if (!look) closeDlPop(); });
 // with the sidebar hidden, the pointer in the margin left of the page brings up the rail
 if (!RAIL) document.addEventListener('mousemove', (e) => { if (S.sidebarHidden && e.clientX < 10 && e.clientY > 48) homie.send('rail'); });
 
@@ -61,6 +67,8 @@ function render() {
   if (!d) meta.textContent = '';
   else if (d.active) { meta.textContent = d.total ? Math.round(d.received / d.total * 100) + '%' : String(d.active); meta.classList.add('busy'); }
   else { meta.textContent = ''; meta.classList.remove('busy'); }
+  const sig = d ? [d.count, d.active, d.last, Math.round(d.received / 1e6)].join() : '';   // a download started, finished or moved a megabyte
+  if (sig !== dlSig) { dlSig = sig; if (dlPop.classList.contains('open')) fillDlPop(); }
 }
 
 // Arc's timings, measured 2026-10-23: a new row appears at full height and fades in over
@@ -212,7 +220,52 @@ $('#newTab').addEventListener('click', () => homie.send('palette', 'new'));
 $('#plus').addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); homie.send('plus-menu', r.left, r.bottom); });   // Arc: New Tab, New Folder…
 $('#clearToday').addEventListener('click', () => homie.send('clear-today'));
 $('#toggle').addEventListener('click', () => homie.send('toggle-sidebar'));
-dlRow.addEventListener('click', () => homie.send('show-downloads'));
+dlRow.addEventListener('click', () => { closeDlPop(); homie.send('show-downloads'); });
+
+// --- hovering Downloads: the newest files, to open, reveal or drag out without the Downloads page ---
+const dlPop = $('#dlpop'), dlRows = dlPop.querySelector('.rows');
+let dlTimer = null, dlSig = '';
+const MAG = '<svg width="13" height="13" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+function hoverDl(over) {
+  clearTimeout(dlTimer);
+  if (RAIL && !document.body.classList.contains('wide')) return;   // the icon rail has no room for it
+  if (over) dlTimer = setTimeout(openDlPop, dlPop.classList.contains('open') ? 0 : 250);
+  else dlTimer = setTimeout(closeDlPop, 250);
+}
+async function openDlPop() { await fillDlPop(); dlPop.classList.add('open'); }
+function closeDlPop() { clearTimeout(dlTimer); dlPop.classList.remove('open'); }
+async function fillDlPop() {
+  const rows = await homie.invoke('dl-recent');
+  dlRows.replaceChildren(...(rows.length ? rows.map(dlItem) : [Object.assign(document.createElement('div'), { className: 'empty', textContent: 'No downloads yet' })]));
+}
+function dlItem(r) {
+  const el = document.createElement('div'); el.className = 'row' + (r.exists ? '' : ' gone'); el.title = r.path;
+  const ico = r.icon ? Object.assign(document.createElement('img'), { src: r.icon }) : Object.assign(document.createElement('span'), { className: 'doc' });
+  const text = document.createElement('span'); text.className = 'text';
+  const name = document.createElement('span'); name.className = 'name'; name.textContent = r.name;
+  const sub = document.createElement('span'); sub.className = 'sub';
+  sub.textContent = r.state === 'progressing' ? (r.total ? Math.round(r.received / r.total * 100) + '%' : dlSize(r.received)) : !r.exists ? 'Moved or deleted' : r.state === 'completed' ? dlSize(r.total || r.received) + ' · ' + dlAgo(r.time) : r.state;
+  text.append(name, sub);
+  const reveal = document.createElement('button'); reveal.className = 'reveal'; reveal.title = 'Show in Finder'; reveal.innerHTML = MAG;
+  reveal.onclick = (e) => { e.stopPropagation(); homie.send('dl', 'reveal', r.id); closeDlPop(); };
+  el.append(ico, text, reveal);
+  if (r.state === 'completed' && r.exists) {
+    el.onclick = () => { homie.send('dl', 'open', r.id); closeDlPop(); };
+    // drag a row out as the file itself, as on the Downloads page
+    el.onmousedown = (e) => {
+      if (e.button !== 0 || e.target.closest('.reveal')) return;
+      const x0 = e.clientX, y0 = e.clientY;
+      const move = (ev) => { if (Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 4) return; done(); homie.send('dl', 'drag', r.id); };
+      const done = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', done); };
+      window.addEventListener('mousemove', move); window.addEventListener('mouseup', done);
+    };
+  }
+  return el;
+}
+function dlSize(b) { if (!b) return '0 B'; const u = ['B', 'KB', 'MB', 'GB']; let i = 0; while (b >= 1024 && i < 3) { b /= 1024; i++; } return b.toFixed(i ? 1 : 0) + ' ' + u[i]; }
+function dlAgo(t) { const m = Math.round((Date.now() - t) / 60000); if (m < 1) return 'just now'; if (m < 60) return m + ' min ago'; const h = Math.round(m / 60); if (h < 24) return h + ' h ago'; return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); }
+for (const el of [dlRow, dlPop]) { el.addEventListener('mouseenter', () => hoverDl(true)); el.addEventListener('mouseleave', () => hoverDl(false)); }
+dlPop.querySelector('.all').addEventListener('click', () => { closeDlPop(); homie.send('show-downloads'); });
 
 // --- resize: the page view is hidden while dragging, so every move reaches us --------
 $('#handle').addEventListener('mousedown', (e) => {

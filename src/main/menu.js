@@ -56,8 +56,8 @@ export function buildMenu(mgr, bookmarks) {
       { label: 'Actual Size', accelerator: 'Cmd+0', click: () => wc()?.setZoomLevel(0) },
       { type: 'separator' },
       { label: 'Downloads', accelerator: 'Cmd+Shift+J', click: () => mgr.showDownloads() },
-      { label: 'Hide Sidebar', accelerator: 'Cmd+S', click: () => mgr.toggleSidebar() },   // Arc's key
-      { label: 'Hide Sidebar', accelerator: 'Cmd+Shift+S', visible: false, click: () => mgr.toggleSidebar() },
+      { label: 'Next Sidebar Style', accelerator: 'Cmd+S', click: () => mgr.toggleSidebar() },   // Arc's key: full, icons, hidden with icons, hidden with the sidebar
+      { label: 'Next Sidebar Style', accelerator: 'Cmd+Shift+S', visible: false, click: () => mgr.toggleSidebar() },
       { role: 'togglefullscreen' },
       { type: 'separator' },
       { label: 'Developer Tools', accelerator: 'Cmd+Option+I', click: () => wc()?.toggleDevTools() },

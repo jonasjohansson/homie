@@ -93,8 +93,13 @@ export class Downloads {
   }
 
   wireIpc() {
-    const fromUI = (e) => e.sender === this.mgr.downloadsTab?.wc || e.sender === this.mgr.sidebar?.webContents;
+    const fromUI = (e) => e.sender === this.mgr.downloadsTab?.wc || e.sender === this.mgr.sidebar?.webContents || e.sender === this.mgr.rail?.webContents;
     ipcMain.on('dl', (e, what, id) => { if (fromUI(e)) this.act(what, id, e.sender); });
+    // the sidebar's hover list: the newest few, with their file icons
+    ipcMain.handle('dl-recent', async (e) => {
+      if (e.sender !== this.mgr.sidebar?.webContents && e.sender !== this.mgr.rail?.webContents) return [];
+      return Promise.all(this.rows.slice(-8).reverse().map(async (r) => ({ ...r, exists: r.state === 'completed' ? fs.existsSync(r.path) : true, icon: await this.icon(r) })));
+    });
     ipcMain.on('dl-context', (e, id, x, y) => {
       if (e.sender !== this.mgr.downloadsTab?.wc) return;
       const r = this.rows.find((v) => v.id === id); if (!r) return;

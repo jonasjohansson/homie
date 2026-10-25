@@ -83,7 +83,7 @@ offers to save or update the login (in Homie only, never back to Chrome).
 | Ctrl+M | mute the tab (Cmd+M minimizes, as everywhere on the Mac) |
 | Cmd+Shift+C | copy the page address |
 | Cmd+Shift+O | open the page in Chrome |
-| Cmd+Shift+S | hide or show the sidebar (drag its edge to resize); hidden, the window's left edge brings up its icons |
+| Cmd+S, Cmd+Shift+S | the next sidebar style, as the sidebar button: full (drag its edge to resize), icons only, hidden with the icons at the window's left edge, hidden with the whole sidebar there |
 | Cmd+, | open bookmarks.yml |
 | right-click a tab | pin, mute, badge, rename, reload, reset, unpin, close |
 | double-click a pinned tab | rename |
@@ -93,7 +93,8 @@ window request becomes a Today tab. A pinned tab keeps its page: a link to anoth
 host (a link in a Gmail message, say) opens as a sub-tab under the pin, and its own
 links stay under the same pin; links within the site and sign-in pages load in
 place. Drag a sub-tab out to keep it on its own. Downloads go to `~/Downloads` and show at the
-bottom of the sidebar: click to reveal, double-click to open.
+bottom of the sidebar: hover the download arrow for the newest files (click one to open it,
+drag it out as the file, or reveal it in Finder), click it for the Downloads page.
 
 ## Terminal tabs
 

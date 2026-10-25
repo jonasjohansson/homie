@@ -22,6 +22,10 @@ const TOOLBAR = 32, MARGIN = 10, RADIUS = 12, GUTTER = 10, PANE_MIN = 240, MAX_P
 const OVERLAY_INSET = 12, OVERLAY_RADIUS = 10;   // a page's Claude: a small terminal in the page's corner
 const PALETTE_W = 640;
 const RAIL_W = 52;   // the rail: the sidebar's icons alone, a 36 pt pill and 8 pt either side
+// the sidebar's four states, in the order the sidebar button and Cmd+S step through them: the full
+// sidebar, the rail docked beside the page, then nothing docked and the rail or the full sidebar
+// floating over the page while the pointer is at the window's left edge
+const SIDEBAR_MODES = ['full', 'rail', 'peek-rail', 'peek-full'];
 const SIDEBAR_MS = 90;   // Arc: the card edge settles in 60 to 90 ms with an ease-out
 const STAGGER_MS = 600;
 // a terminal row's favicon: its own dark tile, so it reads on the light and the dark sidebar
@@ -172,7 +176,6 @@ export class TabManager {
     this.today = [];           // [Tab]
     this.active = null;
     this.closed = [];          // urls, for Cmd+Shift+T
-    this.sidebarHidden = false;
     this.sidebarDragging = false;
     this.downloads = null;         // set by main to the Downloads store
     this.pushTimer = null;
@@ -216,6 +219,7 @@ export class TabManager {
     this.win.contentView.addChildView(this.rail);
     this.rail.webContents.loadFile(path.join(__dirname, '..', 'renderer', 'sidebar.html'), { query: { rail: '1' } });
     this.rail.webContents.on('context-menu', (e) => e.preventDefault());
+    this.rail.webContents.on('did-finish-load', () => { if (this.railNow) this.railLook(this.railNow); });   // docked at launch, before the page had loaded
 
     this.win.on('resize', () => { this.layout(); this.saveBounds(); this.push(); });   // the chrome's cards follow the pane rects
     this.win.on('move', () => this.saveBounds());
@@ -235,13 +239,18 @@ export class TabManager {
 
   saveBounds() { if (this.win && !this.win.isFullScreen()) { state.bounds = this.win.getBounds(); saveState(); } }
 
+  get sidebarMode() { return SIDEBAR_MODES.includes(state.sidebarMode) ? state.sidebarMode : 'full'; }
+  get sidebarHidden() { return this.sidebarMode.startsWith('peek'); }
+  get railDocked() { return this.sidebarMode === 'rail' && !this.fullscreenTab; }
+  // what the sidebar takes from the left of the window: the full width, the rail, or nothing
+  dockWidth() { return this.fullscreenTab || this.sidebarHidden ? 0 : this.railDocked ? RAIL_W : state.sidebarWidth; }
+
   layout() {
     if (!this.win) return;
     const [w, h] = this.win.getContentSize();
-    const hidden = this.sidebarHidden || !!this.fullscreenTab;
-    const sbw = hidden ? 0 : state.sidebarWidth;
+    const sbw = this.dockWidth();
     this.sidebar.setBounds({ x: 0, y: 0, width: w, height: h });
-    const x = hidden ? MARGIN : sbw, y = MARGIN + TOOLBAR;
+    const x = sbw || MARGIN, y = MARGIN + TOOLBAR;
     const card = this.fullscreenTab
       ? { x: 0, y: 0, width: w, height: h }
       : { x, y, width: Math.max(0, w - x - MARGIN), height: Math.max(0, h - y - MARGIN) };
@@ -266,7 +275,7 @@ export class TabManager {
     const pw = Math.min(PALETTE_W, pr.width - 40);
     const py = Math.max(pr.y + 20, Math.min(pr.y + Math.round(pr.height * 0.33) - 24, pr.y + pr.height - this.paletteHeight - 20));   // a tall bar (an answer) stays inside the pane
     this.palette.setBounds({ x: pr.x + Math.round((pr.width - pw) / 2), y: py, width: pw, height: this.paletteHeight });
-    if (this.railShown) { if (!this.sidebarHidden || this.fullscreenTab) this.hideRail(); else this.rail.setBounds({ x: card.x, y: card.y, width: RAIL_W, height: card.height }); }
+    this.placeRail(card);
     this.rects = rects;
     return rects[focus] || card;
   }
@@ -373,13 +382,25 @@ export class TabManager {
     this.raisePalette();
   }
 
-  // The rail stays while the pointer is over it or the edge strip beside it, or one of its menus is open;
+  // Docked, the rail sits left of the page and stays. Floating, it is the rail or the whole sidebar over
+  // the page's left edge, below the toolbar.
+  placeRail(card) {
+    if (this.railDocked) {
+      this.rail.setBounds({ x: 0, y: card.y, width: RAIL_W, height: card.height });
+      if (!this.railShown) { this.railShown = true; this.raiseOverlays(); this.rail.setVisible(true); this.railLook('docked'); }
+      return;
+    }
+    if (!this.sidebarHidden || this.fullscreenTab) return this.hideRail();
+    // sized while out of sight too: a hidden view takes a new size late, and would slide in at the old one
+    this.rail.setBounds({ x: card.x, y: card.y, width: this.sidebarMode === 'peek-full' ? state.sidebarWidth : RAIL_W, height: card.height });
+  }
+  // The floating rail stays while the pointer is over it or the edge strip beside it, or one of its menus is open;
   // a quarter second away and it goes.
   showRail() {
     if (this.railShown || !this.sidebarHidden || this.fullscreenTab || !this.win) return;
     this.railShown = true; this.railAway = 0;
     this.layout(); this.raiseOverlays();
-    this.rail.setVisible(true); this.rail.webContents.send('rail', true);
+    this.rail.setVisible(true); this.railLook(this.sidebarMode === 'peek-full' ? 'wide' : 'float');
     clearInterval(this.railTimer);
     this.railTimer = setInterval(() => {
       const p = screen.getCursorScreenPoint(), c = this.win.getContentBounds(), r = this.rail.getBounds();
@@ -388,7 +409,8 @@ export class TabManager {
       if (this.railAway >= 3) this.hideRail();
     }, 80);
   }
-  hideRail() { if (!this.railShown) return; this.railShown = false; clearInterval(this.railTimer); this.rail.setVisible(false); this.rail.webContents.send('rail', false); }
+  hideRail() { if (!this.railShown) return; this.railShown = false; clearInterval(this.railTimer); this.rail.setVisible(false); this.railLook(''); }
+  railLook(look) { this.railNow = look; this.rail.webContents.send('rail', look); }   // '' out of sight, 'float', 'wide' (the whole sidebar, floating) or 'docked'
   // a menu the rail asks for opens at the rail's offset and holds the rail up until it closes
   popupAt(e, x, y) {
     const rail = !!e && e.sender === this.rail?.webContents, o = rail ? this.rail.getBounds() : { x: 0, y: 0 };
@@ -564,8 +586,7 @@ export class TabManager {
       { label: 'Remove from List', click: () => act('remove') },
       { label: 'Move to Trash', click: () => act('trash') },
     ];
-    const sbw = this.sidebarHidden ? 0 : state.sidebarWidth;
-    const b = this.downloadsTab?.view?.getBounds() || { x: sbw, y: 0 };
+    const b = this.downloadsTab?.view?.getBounds() || { x: this.dockWidth(), y: 0 };
     Menu.buildFromTemplate(items).popup({ window: this.win, x: Math.round(x) + b.x, y: Math.round(y) + b.y });
   }
 
@@ -731,7 +752,10 @@ export class TabManager {
     Menu.buildFromTemplate(items).popup(this.popupAt(e, x, y));
   }
 
-  toggleSidebar() { this.sidebarHidden = !this.sidebarHidden; this.animateLayout(); this.push(true); }   // layout first so the snapshot carries the new pane rects
+  toggleSidebar() {   // the next of the four states; layout first so the snapshot carries the new pane rects
+    state.sidebarMode = SIDEBAR_MODES[(SIDEBAR_MODES.indexOf(this.sidebarMode) + 1) % SIDEBAR_MODES.length]; saveState();
+    this.hideRail(); this.animateLayout(); this.push(true);
+  }
   setSidebarWidth(w) { state.sidebarWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w))); saveState(); this.layout(); }
 
   badgesChanged() {
@@ -958,8 +982,7 @@ export class TabManager {
     }
     try { for (const mi of this.extensions?.getContextMenuItems(wc, p) || []) items.push(mi); if (items.at(-1)?.type !== 'separator' && this.extensions) items.push({ type: 'separator' }); } catch {}
     items.push({ label: 'Inspect Element', click: () => wc.inspectElement(p.x, p.y) });
-    const sbw = this.sidebarHidden ? 0 : state.sidebarWidth;
-    const b = tab.view?.getBounds() || { x: sbw, y: 0 };
+    const b = tab.view?.getBounds() || { x: this.dockWidth(), y: 0 };
     Menu.buildFromTemplate(items).popup({ window: this.win, x: p.x + b.x, y: p.y + b.y });
   }
 
@@ -991,6 +1014,7 @@ export class TabManager {
       downloadsActive: !!this.downloadsTab && a === this.downloadsTab,
       sidebarWidth: state.sidebarWidth,
       sidebarHidden: this.sidebarHidden,
+      sidebarMode: this.sidebarMode,
       tint: this.bookmarks.tint || '',
       askModel: this.bookmarks.ask || 'sonnet',
     };

@@ -112,6 +112,25 @@ h2 button { margin-left: auto; margin-right: 8px; font-size: 11px; font-weight: 
 #dlrow .meta { font-size: 11px; }
 #dlrow .meta:empty { display: none; }
 #dlrow .meta.busy, #dlrow.active { color: var(--fg); }
+/* hovering Downloads lists the newest files above it, inside the sidebar (the page covers anything wider) */
+#dlpop { position: absolute; left: 8px; right: 8px; bottom: 48px; z-index: 5; padding: 5px; border-radius: 10px; background: var(--card); color: var(--card-fg); box-shadow: 0 0 0 .5px var(--line), 0 8px 24px rgba(0, 0, 0, .18); opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity var(--t-hover) var(--ease-out), transform var(--t-hover) var(--ease-out); }
+#dlpop.open { opacity: 1; transform: none; pointer-events: auto; }
+#dlpop .row { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: center; height: 38px; padding: 0 6px; border-radius: 6px; cursor: default; }
+#dlpop .row:hover { background: var(--hover); }
+#dlpop .row img, #dlpop .row .doc { width: 16px; height: 16px; }
+#dlpop .row .doc { border-radius: 3px; background: var(--field); }
+#dlpop .row.gone { opacity: .45; }
+#dlpop .text { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+#dlpop .name { font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#dlpop .sub { font-size: 10.5px; color: var(--card-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#dlpop .reveal { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 5px; color: var(--card-muted); visibility: hidden; }
+#dlpop .row:hover .reveal { visibility: visible; }
+#dlpop .reveal:hover { background: var(--field); color: var(--card-fg); }
+#dlpop .empty { padding: 10px 6px; font-size: 12px; color: var(--card-muted); }
+#dlpop .rows { padding-bottom: 4px; margin-bottom: 4px; border-bottom: .5px solid var(--line); }
+#dlpop .all { width: 100%; height: 28px; border-radius: 6px; font-size: 11.5px; color: var(--card-muted); }
+#dlpop .all:hover { background: var(--hover); color: var(--card-fg); }
+body.rail:not(.wide) #dlpop { display: none; }
 
 /* drag and drop: the lifted row follows the pointer; a gap of one row pitch opens where it would land */
 .tab.dragging { display: none; }
@@ -128,14 +147,17 @@ body.dragging { cursor: default; }
    Main shows the view at the edge and says 'in'; the strip slides out from the edge with the sidebar's curve. */
 body.rail { opacity: 0; transform: translateX(-100%); box-shadow: inset -1px 0 0 var(--line); }
 body.rail.in { opacity: 1; transform: none; transition: opacity var(--t-sidebar) var(--ease-out), transform var(--t-sidebar) var(--ease-out); }
+body.rail.docked { box-shadow: none; transition: none; }   /* docked it is part of the window, not a layer over the page */
+body.rail.wide { box-shadow: inset -1px 0 0 var(--line), 0 0 24px rgba(0, 0, 0, .25); }
 body.rail #sidebar { width: 100%; }
-body.rail :is(#top, #cards, #gutters, #handle, #clearToday, h2 .name, h2 button, .tab .label, .tab .x, #dlrow .meta) { display: none; }
+body.rail :is(#top, #cards, #gutters, #handle) { display: none; }
+body.rail:not(.wide) :is(#clearToday, h2 .name, h2 button, .tab .label, .tab .x, #dlrow .meta) { display: none; }
 body.rail #list { padding-top: 8px; }
-body.rail h2, body.rail .tab, body.rail #newTab { margin: 0 8px var(--pitch); padding: 0; justify-content: center; }
-body.rail .tab, body.rail #newTab { grid-template-columns: var(--icon); position: relative; }
-body.rail .tab .badge { position: absolute; top: 6px; right: 6px; min-width: 0; width: 7px; height: 7px; padding: 0; font-size: 0; }   /* the count becomes a dot */
-body.rail #divider { margin: -2px 12px 3px; background: var(--line); }   /* pinned above, Today below */
-body.rail #bottom { height: auto; flex-direction: column; gap: 4px; padding: 6px 0 10px; }
+body.rail:not(.wide) :is(h2, .tab, #newTab) { margin: 0 8px var(--pitch); padding: 0; justify-content: center; }
+body.rail:not(.wide) :is(.tab, #newTab) { grid-template-columns: var(--icon); position: relative; }
+body.rail:not(.wide) .tab .badge { position: absolute; top: 6px; right: 6px; min-width: 0; width: 7px; height: 7px; padding: 0; font-size: 0; }   /* the count becomes a dot */
+body.rail:not(.wide) #divider { margin: -2px 12px 3px; background: var(--line); }   /* pinned above, Today below */
+body.rail:not(.wide) #bottom { height: auto; flex-direction: column; gap: 4px; padding: 6px 0 10px; }
 
 /* --- the cards: one per pane, toolbar on top, the page view sits over the rest -------------
    Main sends each pane's rect; a split shows several cards with a gutter between them. */
@@ -146,6 +168,7 @@ body.resizing .card, body.resizing .toolbar { transition: none; }
 .card.focused:not(.single) { outline: 1.5px solid var(--fg-muted); }   /* Arc: a highlighted boundary marks the focused pane */
 .toolbar { height: var(--tb); display: grid; grid-template-columns: 1fr minmax(0, 2fr) 1fr; align-items: center; padding: 0 8px 0 7px; border-bottom: 1px solid color-mix(in srgb, var(--card), var(--card-fg) 6%); transition: padding-left var(--t-sidebar) var(--ease-out); }   /* Arc: first icon 13.5 pt in, a 5% hairline under the strip */
 body.sidebar-hidden .card:first-child .toolbar { padding-left: 76px; }
+body.sidebar-rail .card:first-child .toolbar { padding-left: 34px; }   /* the card starts at the rail; the traffic lights end 72 pt in */
 .nav { display: flex; gap: 7px; }   /* Arc: nav icons on a 37 pt pitch, first centre 20 pt from the card edge */
 .nav button { width: 30px; height: 28px; color: var(--card-muted); border-radius: 6px; transition: background-color var(--t-hover) var(--ease-out); }
 .nav button:hover:not(:disabled), .address:hover, #toggle:hover, #bottom button:hover, .paneClose:hover { background: var(--hover); }

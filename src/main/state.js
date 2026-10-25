@@ -9,6 +9,7 @@ const file = () => path.join(app.getPath('userData'), 'state.json');
 const defaults = {
   bounds: { width: 1280, height: 860 },
   sidebarWidth: 202,
+  sidebarMode: 'full', // full | rail | peek-rail | peek-full: Cmd+S steps through them
   today: [],          // [{ url, title }]
   activeUrl: null,
   split: null,        // { urls, factors, focus }
