@@ -412,7 +412,7 @@ export class TabManager {
       const p = screen.getCursorScreenPoint(), c = this.win.getContentBounds(), r = this.rail.getBounds();
       const x = p.x - c.x, y = p.y - c.y, over = x >= 0 && x < r.x + r.width + 8 && y >= 0 && y < c.height;
       this.railAway = over || this.railHold ? 0 : this.railAway + 1;
-      if (this.railAway >= 3) this.hideRail();
+      if (this.railAway >= 2) this.hideRail();   // 160 ms away
     }, 80);
   }
   hideRail() {
@@ -420,8 +420,8 @@ export class TabManager {
     if (this.railNow !== 'docked' || !this.switchMs) {
       // out of sight in the page first, then the view: a hidden view never takes the change, and would show
       // its last frame (and keep the class) the next time it comes, so the slide in would not run
-      this.railLook(''); clearTimeout(this.railOff);
-      this.railOff = setTimeout(() => { if (!this.railShown) this.rail.setVisible(false); }, 60);
+      this.railLook(''); clearTimeout(this.railOff);   // the page slides it out (0.6 of the reveal), then the view goes
+      this.railOff = setTimeout(() => { if (!this.railShown) this.rail.setVisible(false); }, Math.round(this.timing('reveal') * 0.6) + 60);
       return;
     }
     // the docked rail fades out with the sidebar's change of style, then goes
@@ -1142,7 +1142,7 @@ export class TabManager {
     ipcMain.on('show-settings', (e) => fromUI(e) && this.showSettings());
     const fromSettings = (e) => e.sender === this.settingsTab?.wc;
     ipcMain.handle('settings-get', (e) => (fromSettings(e) ? this.settingsData() : null));
-    ipcMain.on('settings-set', (e, key, value) => { if (fromSettings(e)) this.setSetting(String(key), value); });
+    ipcMain.on('settings-set', (e, key, value) => { if (!fromSettings(e)) return; try { this.setSetting(String(key), value); } catch (err) { console.error('settings:', err.message); } });   // a bad bookmarks.yml is no reason for a crash dialog
     ipcMain.on('settings-file', (e) => { if (fromSettings(e)) shell.openPath(this.bookmarks.realPath); });
     ipcMain.on('toggle-sidebar', (e) => fromUI(e) && this.toggleSidebar());
     ipcMain.on('rail', (e) => e.sender === this.sidebar?.webContents && this.showRail());

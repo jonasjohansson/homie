@@ -116,9 +116,11 @@ export class Bookmarks {
     if (!(key in SETTINGS)) return;
     const v = setting(key, value);
     this.edit((doc) => {
-      if (OLD_MS[key]) doc.deleteIn(['settings', OLD_MS[key]]);   // the word replaces 4.10.0's milliseconds
-      if (v === SETTINGS[key]) doc.deleteIn(['settings', key]); else doc.setIn(['settings', key], v);
-      if (doc.has('settings') && !doc.get('settings')?.items?.length) doc.delete('settings');
+      const block = doc.get('settings');
+      if (!YAML.isMap(block)) { if (v === SETTINGS[key]) return false; doc.set('settings', doc.createNode({ [key]: v })); return; }   // no settings: block yet (deleteIn would throw)
+      if (OLD_MS[key]) block.delete(OLD_MS[key]);   // the word replaces 4.10.0's milliseconds
+      if (v === SETTINGS[key]) block.delete(key); else block.set(key, v);
+      if (!block.items.length) doc.delete('settings');
     });
   }
   // a top-level key the page writes (tint, ask, agents); empty or false leaves it out

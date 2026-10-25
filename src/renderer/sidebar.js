@@ -31,19 +31,25 @@ homie.on('start-rename', (id) => startRename(id));
 homie.on('start-rename-group', (name) => startRenameGroup(name));
 homie.on('row-drag-end', () => { if (endDrag) endDrag(); });   // the page took the drop
 // main says how the rail shows: '' (out of sight), 'float', 'wide' (the whole sidebar, floating), 'docked' or 'docked-out'
+let railLook = '';
 homie.on('rail', (look) => {
-  const b = document.body.classList, was = b.contains('in');
-  b.toggle('in', !!look && look !== 'docked-out'); b.toggle('wide', look === 'wide'); b.toggle('docked', look.startsWith('docked'));
+  const b = document.body.classList, floated = railLook === 'float' || railLook === 'wide';
+  b.toggle('in', !!look && look !== 'docked-out'); b.toggle('wide', look === 'wide' || (!look && railLook === 'wide')); b.toggle('docked', look.startsWith('docked'));
   if (!look) closeDlPop();
-  if ((look === 'float' || look === 'wide') && !was) slideIn();
+  if ((look === 'float' || look === 'wide') && !floated) slide(true);
+  else if (!look && floated) slide(false);   // main hides the view once the slide out is done
+  railLook = look;
 });
-// the slide in at the edge, as an animation of its own: the view was out of sight until now, so a CSS
-// transition on the class would have nothing to start from
-function slideIn() {
-  const ms = S.timing?.reveal ?? 250;
+// The slide at the edge, as an animation of its own: the view was out of sight until it comes, so a CSS
+// transition on the class would have nothing to start from. Going is quicker than coming, as in macOS.
+let sliding = null;
+function slide(coming) {
+  const ms = Math.round((S.timing?.reveal ?? 250) * (coming ? 1 : 0.6));
+  sliding?.cancel(); sliding = null;
   if (!ms || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const easing = getComputedStyle(document.documentElement).getPropertyValue('--ease-out').trim() || 'ease-out';
-  document.body.animate([{ transform: 'translateX(-100%)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: ms, easing });
+  const shown = { transform: 'none', opacity: 1 }, gone = { transform: 'translateX(-100%)', opacity: 0 };
+  sliding = $('#sidebar').animate(coming ? [gone, shown] : [shown, gone], { duration: ms, easing });
 }
 // with the sidebar hidden, the pointer in the margin left of the page brings up the rail
 // after the pointer has rested there for Settings' reveal delay
