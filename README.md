@@ -50,6 +50,18 @@ Logins, zoom per site, window frame, sidebar width and the Today list stay per
 machine. Extensions install from the Chrome Web Store (Homie menu) and live in
 `Application Support/Homie/Extensions`.
 
+## Passwords
+
+Homie > Import Passwords from Chrome… copies the logins Chrome saved on this Mac, as
+Arc does: it reads each Chrome profile's `Login Data` and decrypts it with the key
+from the Keychain item "Chrome Safe Storage" (macOS asks once; Allow is enough). The
+key is kept, so Homie imports again silently each time it starts. Logins live in
+`Application Support/Homie/passwords.bin`, encrypted with Homie's own Keychain key.
+
+A page is filled only on the exact https site a login was saved for: one login fills
+as the form appears, several are listed under the field. After a sign-in Homie
+offers to save or update the login (in Homie only, never back to Chrome).
+
 ## Keys
 
 | | |

@@ -96,3 +96,125 @@ function watchBg() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchBg); else watchBg();
 window.addEventListener('load', () => scheduleBg(60));
+
+// Saved logins (main's passwords.js): main answers only for this page's own https origin. Fill a
+// login form as it appears, list the usernames under the field when a site has several, and when
+// a login is submitted, let main offer to save it (on this page, or the one the submit leads to).
+const PW_SUBMIT = /log\s*in|sign\s*in|next|continue|submit|logga\s*in|nästa|fortsätt/i;
+const shown = (el) => !el.disabled && !el.readOnly && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+const textInputs = (scope) => [...scope.querySelectorAll('input[type=email],input[type=text],input[type=tel],input:not([type])')].filter(shown);
+const isIdentifier = (el) => /username|email/.test(el.autocomplete) || el.type === 'email' || /^(user(name)?|login|e-?mail|identifier|account)$/i.test(el.name || el.id || '');
+const passwordInputs = () => [...document.querySelectorAll('input[type=password]')].filter(shown);
+function userFieldFor(pw) {
+  const before = textInputs(pw.form || document).filter((el) => el.compareDocumentPosition(pw) & Node.DOCUMENT_POSITION_FOLLOWING);
+  return before.findLast((el) => /username|email/.test(el.autocomplete)) || before.findLast(isIdentifier) || before.at(-1) || null;
+}
+const identifierField = () => textInputs(document).find(isIdentifier) || null;
+function setValue(el, v) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }
+const dark = () => matchMedia('(prefers-color-scheme: dark)').matches;
+// a closed shadow root keeps the page's scripts out; styled through CSSOM, which a page's CSP allows
+function floating(css) {
+  const host = document.createElement('div');
+  Object.assign(host.style, { position: 'fixed', zIndex: '2147483647' }, css);
+  const box = document.createElement('div');
+  Object.assign(box.style, { font: '13px -apple-system, system-ui, sans-serif', color: dark() ? '#eee' : '#222', background: dark() ? '#2b2b2b' : '#fff',
+    border: `1px solid ${dark() ? '#444' : '#d8d8d8'}`, borderRadius: '10px', boxShadow: '0 6px 24px rgba(0,0,0,.18)', padding: '4px', display: 'flex', flexDirection: 'column', gap: '2px' });
+  host.attachShadow({ mode: 'closed' }).append(box);
+  (document.documentElement || document).append(host);
+  return { host, box };
+}
+function button(label, onPick, strong) {
+  const b = document.createElement('button');
+  b.textContent = label;
+  Object.assign(b.style, { font: 'inherit', color: 'inherit', textAlign: 'left', border: '0', borderRadius: '6px', padding: '6px 10px', cursor: 'default',
+    background: strong ? (dark() ? '#3d6fe0' : '#2f6bf0') : 'transparent', ...(strong ? { color: '#fff' } : {}) });
+  if (!strong) { b.addEventListener('mouseenter', () => { b.style.background = dark() ? '#3a3a3a' : '#f0f0f0'; }); b.addEventListener('mouseleave', () => { b.style.background = 'transparent'; }); }
+  b.addEventListener('mousedown', (ev) => { ev.preventDefault(); onPick(); });   // before the field blurs
+  return b;
+}
+
+let pwLogins = null, picker = null;
+const logins = () => (pwLogins ||= ipcRenderer.invoke('homie:pw-logins').catch(() => ({ users: [], related: [], last: null })));
+// a choice is this site's login ({ username }) or one saved for another part of it ({ username, site })
+async function fill(choice, uEl, pEl) {
+  if (uEl && !uEl.value && choice.username) setValue(uEl, choice.username);
+  if (pEl && !pEl.value) { const pw = await ipcRenderer.invoke('homie:pw-fill', choice.username, choice.site).catch(() => null); if (pw != null) setValue(pEl, pw); }
+}
+const hidePicker = () => { picker?.remove(); picker = null; };
+function attachPicker(field, choices, pick) {
+  const show = () => {
+    hidePicker();
+    const r = field.getBoundingClientRect();
+    const { host, box } = floating({ left: `${Math.round(r.left)}px`, top: `${Math.round(r.bottom + 4)}px`, minWidth: `${Math.round(Math.max(r.width, 200))}px` });
+    for (const c of choices.slice(0, 10)) box.append(button((c.username || '(no username)') + (c.site ? ` · ${c.site}` : ''), () => { hidePicker(); pick(c); }));
+    picker = host;
+  };
+  field.addEventListener('focus', show);
+  field.addEventListener('blur', () => setTimeout(hidePicker, 150));
+  field.addEventListener('input', hidePicker);
+  if (document.activeElement === field) show();
+}
+
+const seen = new WeakSet();
+async function scanLogins() {
+  const { users, related, last } = await logins();
+  if (!users.length && !related.length) { pwObserver.disconnect(); return; }
+  // only this site's own logins fill by themselves; ones from elsewhere on the site wait to be picked, as in Chrome
+  const choices = [...users.map((username) => ({ username })), ...related];
+  const pws = passwordInputs().filter((p) => p.autocomplete !== 'new-password');
+  if (pws.length === 1 && !seen.has(pws[0])) {   // two or more is a sign-up or change-password form
+    const pw = pws[0], u = userFieldFor(pw);
+    seen.add(pw);
+    if (u?.value && users.includes(u.value)) return fill({ username: u.value }, null, pw);
+    if (users.length === 1) return fill({ username: users[0] }, u, pw);
+    if (!u && last && users.includes(last)) return fill({ username: last }, null, pw);   // the password page after a username page
+    return attachPicker(u || pw, choices, (c) => fill(c, u, pw));
+  }
+  const id = !pws.length && identifierField();
+  if (id && !seen.has(id)) {
+    seen.add(id);
+    if (users.length === 1) { if (!id.value) setValue(id, users[0]); } else attachPicker(id, choices, (c) => setValue(id, c.username));
+  }
+}
+let scanTimer = null;
+const pwObserver = new MutationObserver(() => { clearTimeout(scanTimer); scanTimer = setTimeout(scanLogins, 400); });
+
+let lastSubmit = '';
+function captureLogin() {
+  const filled = [...document.querySelectorAll('input[type=password]')].filter((p) => p.value);
+  if (!filled.length) { const id = identifierField(); if (id?.value) ipcRenderer.send('homie:pw-user', id.value); return; }
+  // on a change-password form, the new one: marked new-password, or the value typed twice
+  const vals = filled.map((p) => p.value);
+  const password = filled.find((p) => p.autocomplete === 'new-password')?.value || vals.find((v, i) => vals.indexOf(v) !== i) || vals[0];
+  const username = userFieldFor(filled[0])?.value || '';
+  if (username + '\n' + password === lastSubmit) return;
+  lastSubmit = username + '\n' + password;
+  ipcRenderer.send('homie:pw-submit', { username, password });
+}
+document.addEventListener('submit', captureLogin, true);
+document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target?.tagName === 'INPUT') captureLogin(); }, true);
+document.addEventListener('click', (e) => {
+  const b = e.target?.closest?.('button, input[type=submit], [role=button]');
+  if (b && (b.type === 'submit' || PW_SUBMIT.test(b.textContent || b.value || b.getAttribute('aria-label') || ''))) captureLogin();
+}, true);
+
+ipcRenderer.on('homie:pw-offer', (_e, o) => {
+  const { host, box } = floating({ top: '12px', right: '12px', maxWidth: '340px' });
+  const text = document.createElement('div');
+  Object.assign(text.style, { padding: '8px 10px 6px' });
+  text.textContent = `${o.update ? 'Update the password' : 'Save the password'} for ${o.username || o.site} in Homie?`;
+  const row = document.createElement('div');
+  Object.assign(row.style, { display: 'flex', gap: '4px', justifyContent: 'flex-end', padding: '0 4px 4px' });
+  let timer = null;
+  const answer = (a) => { clearTimeout(timer); host.remove(); ipcRenderer.send('homie:pw-answer', a); };
+  row.append(button('Never for this site', () => answer('never')), button('Not now', () => answer('dismiss')), button(o.update ? 'Update' : 'Save', () => answer('save'), true));
+  box.append(text, row);
+  timer = setTimeout(() => answer('dismiss'), 30000);
+});
+
+function startLogins() {
+  ipcRenderer.send('homie:pw-ready');
+  scanLogins();
+  pwObserver.observe(document.documentElement, { childList: true, subtree: true });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startLogins); else startLogins();

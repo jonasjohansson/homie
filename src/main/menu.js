@@ -12,6 +12,7 @@ export function buildMenu(mgr, bookmarks) {
       { type: 'separator' },
       { label: 'Make Homie the Default Browser', click: () => { app.setAsDefaultProtocolClient('http'); app.setAsDefaultProtocolClient('https'); } },
       { label: 'Open at Login', type: 'checkbox', enabled: app.isPackaged, checked: app.isPackaged && app.getLoginItemSettings().openAtLogin, click: (mi) => setOpenAtLogin(mi.checked) },
+      { label: 'Import Passwords from Chrome…', click: () => mgr.passwords.importFromMenu(mgr.win) },
       { label: 'Chrome Web Store', click: () => mgr.open('https://chromewebstore.google.com/') },
       { label: 'Open bookmarks.yml', accelerator: 'Cmd+,', click: () => shell.openPath(bookmarks.realPath) },
       { type: 'separator' },

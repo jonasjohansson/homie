@@ -8,6 +8,7 @@ import { Downloads } from './downloads.js';
 import { Terminals } from './terminal.js';
 import { Agents } from './agents.js';
 import { Asker } from './ask.js';
+import { Passwords } from './passwords.js';
 
 // a second profile for development, beside the installed Homie: HOMIE_USER_DATA=/some/dir npm start
 if (process.env.HOMIE_USER_DATA) app.setPath('userData', process.env.HOMIE_USER_DATA);
@@ -74,12 +75,16 @@ app.whenReady().then(async () => {
   mgr.downloads = new Downloads(mgr);
   mgr.downloads.attach(ses);
   mgr.downloads.wireIpc();
+  mgr.passwords = new Passwords(ses);
+  mgr.passwords.wireIpc();
   mgr.wireIpc();
   mgr.createWindow();
   buildMenu(mgr, bookmarks);
   mgr.restoreToday();
   mgr.syncBookmarks(true);
   mgr.restoreSplit();
+  // Chrome's logins again, silently, once an import from the menu has shared its key
+  mgr.passwords.importFromChrome().catch((e) => console.error('passwords:', e.message));
   agents = new Agents(mgr, bookmarks);
   mgr.agents = agents;
   agents.sync();
