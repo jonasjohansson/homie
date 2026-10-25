@@ -100,6 +100,7 @@ export class Tab {
     this.view = null;
     this.notifications = new Map();
     this.page = opts.page || null;        // internal pages: a file under src/renderer
+    this.parentUrl = opts.parentUrl || null;   // a Today tab a pin's link opened: it sits under that pin
     this.run = opts.run || '';            // a pinned terminal's command, from bookmarks.yml
     this.react = opts.react || '';        // a pinned tab's rule for when its unread count goes up
     this.watchFrom = 0;                   // unread rises count from here (set when the view is made)
@@ -150,6 +151,8 @@ function site(u) { const h = new URL(u).hostname.split('.'); const n = h.length 
 function sameSite(a, b) {
   try { return site(a) === site(b); } catch { return a === b; }
 }
+// same host, www or not: Gmail and its google.com/url link redirects are one site but not one host
+function sameHost(a, b) { try { const h = (u) => new URL(u).hostname.replace(/^www\./, ''); return h(a) === h(b); } catch { return a === b; } }
 function isAuthHost(u) { try { return /(^|\.)(accounts\.google\.com|login\.microsoftonline\.com|login\.live\.com|appleid\.apple\.com|auth\.openai\.com|github\.com\/login)|^(login|signin|auth|accounts|sso|id)\./i.test(new URL(u).host); } catch { return false; } }
 
 export function resolveInput(text) {
@@ -455,6 +458,15 @@ export class TabManager {
     wc.on('did-navigate-in-page', (_e, url, isMainFrame) => { if (isMainFrame) nav(url); });
     wc.on('dom-ready', () => { wc.executeJavaScript(NOTIFICATION_SHIM, true).catch(() => {}); wc.executeJavaScript(OPEN_SHIM, true).catch(() => {}); });
     wc.on('context-menu', (_e, params) => this.pageContextMenu(tab, params));
+    // a plain link the page let through (the preload reported the click) that leaves a pinned tab's
+    // host opens under the pin; redirects, form posts and the page's own navigations stay in place
+    wc.on('will-navigate', (e) => {
+      const click = tab.linkClick; tab.linkClick = null;
+      if (tab.kind !== 'pinned' || !click || Date.now() - click > 1000 || !e.isMainFrame || !/^https?:/i.test(e.url)) return;
+      if (sameHost(e.url, tab.url) || sameHost(e.url, tab.pinnedUrl) || isAuthHost(e.url)) return;
+      e.preventDefault();
+      this.open(e.url, { after: tab, parent: tab.pinnedUrl });
+    });
     wc.on('render-process-gone', (_e, d) => { if (d.reason !== 'clean-exit') { tab.title = 'Crashed: ' + tab.title; this.push(); } });
     wc.on('enter-html-full-screen', () => { this.fullscreenTab = tab; this.layout(); });
     wc.on('leave-html-full-screen', () => { this.fullscreenTab = null; this.layout(); });
@@ -465,10 +477,11 @@ export class TabManager {
         return { action: 'allow', overrideBrowserWindowOptions: { parent: this.win, autoHideMenuBar: true,
           webPreferences: { preload: PAGE_PRELOAD, sandbox: true, contextIsolation: true, partition: 'persist:homie' } } };
       }
-      // Arc keeps a pinned app inside its tab: a _blank link to the same site, or to a sign-in
-      // host (Google's "Sign in" on the logged-out landing page is one), loads in place.
-      if (tab.kind === 'pinned' && disposition === 'foreground-tab' && (sameSite(url, tab.url) || sameSite(url, tab.pinnedUrl) || isAuthHost(url))) { tab.load(url); return { action: 'deny' }; }
-      this.open(url, { background: disposition === 'background-tab', after: tab });
+      // Arc keeps a pinned app inside its tab: a _blank link to the same host, or to a sign-in
+      // host (Google's "Sign in" on the logged-out landing page is one), loads in place. Any other
+      // link (Gmail's, through google.com/url) opens as a tab under the pin.
+      if (tab.kind === 'pinned' && disposition === 'foreground-tab' && (sameHost(url, tab.url) || sameHost(url, tab.pinnedUrl) || isAuthHost(url))) { tab.load(url); return { action: 'deny' }; }
+      this.open(url, { background: disposition === 'background-tab', after: tab, parent: this.linkParent(tab) });
       return { action: 'deny' };
     });
     wc.on('did-create-window', (child) => { try { this.extensions?.addTab(child.webContents, child); } catch {} });
@@ -526,7 +539,11 @@ export class TabManager {
   }
 
   allPinned() { return this.groups.flatMap((g) => g.tabs); }
-  ordered() { return [...this.allPinned(), ...this.today, ...(this.downloadsTab ? [this.downloadsTab] : [])]; }
+  // a pin's sub-tabs are Today tabs shown under it; one whose pin is gone shows in Today again
+  childrenOf(p) { return this.today.filter((t) => t.parentUrl && t.parentUrl === p.pinnedUrl); }
+  nested(t) { return !!t.parentUrl && this.allPinned().some((p) => p.pinnedUrl === t.parentUrl); }
+  linkParent(tab) { return tab.kind === 'pinned' ? tab.pinnedUrl : tab.kind === 'today' ? tab.parentUrl : null; }   // a sub-tab's links stay under the same pin
+  ordered() { return [...this.allPinned().flatMap((p) => [p, ...this.childrenOf(p)]), ...this.today.filter((t) => !this.nested(t)), ...(this.downloadsTab ? [this.downloadsTab] : [])]; }
 
   showDownloads() {
     if (!this.downloadsTab) {
@@ -555,14 +572,14 @@ export class TabManager {
   restoreToday() {
     for (const row of state.today || []) {
       if (!row?.url) continue;
-      const t = new Tab(this, { kind: 'today', url: row.url, title: row.title || row.url, favicon: row.favicon });
+      const t = new Tab(this, { kind: 'today', url: row.url, title: row.title || row.url, favicon: row.favicon, parentUrl: row.parent });
       if (row.customTitle) t.customTitle = row.customTitle;
       this.tabs.set(t.id, t); this.today.push(t);
     }
   }
 
   saveToday() {
-    state.today = this.today.map((t) => ({ url: t.url, title: t.title, favicon: t.favicon, customTitle: t.customTitle || undefined }));
+    state.today = this.today.map((t) => ({ url: t.url, title: t.title, favicon: t.favicon, customTitle: t.customTitle || undefined, parent: t.parentUrl || undefined }));
     saveState();
   }
 
@@ -588,8 +605,8 @@ export class TabManager {
 
   updateWindowTitle() { if (this.win && this.active) this.win.setTitle(this.active.title || this.active.label || 'Homie'); }
 
-  open(url, { background = false, after = null, title = '' } = {}) {
-    const t = new Tab(this, { kind: 'today', url, title: title || url });
+  open(url, { background = false, after = null, title = '', parent = null } = {}) {
+    const t = new Tab(this, { kind: 'today', url, title: title || url, parentUrl: parent });
     this.tabs.set(t.id, t);
     const i = after && after.kind === 'today' ? this.today.indexOf(after) + 1 : 0;   // Arc: a new tab lands at the top of Today
     this.today.splice(i, 0, t);
@@ -667,6 +684,7 @@ export class TabManager {
   moveTab(id, groupName, index) {
     const t = this.tabs.get(id); if (!t || t.kind === 'internal') return;
     if (t.kind === 'today' && groupName != null) { const twin = this.allPinned().find((p) => p.pinnedUrl === t.url); if (twin) { const was = this.active === t; this.dropTab(t); this.saveToday(); this.moveTab(twin.id, groupName, index); if (was) this.activate(twin.id); return; } }
+    if (t.kind === 'today') t.parentUrl = null;   // a sub-tab dragged anywhere leaves its pin
     const from = this.groups.find((g) => g.tabs.includes(t));
     const label = t.kind === 'pinned' ? t.label : (t.title || '').replace(/^\(\d+\)\s*/, '').slice(0, 40);
     if (groupName == null) {                                    // → Today
@@ -685,7 +703,7 @@ export class TabManager {
     this.push();
   }
   pin(id, groupName) { this.moveTab(id, groupName, undefined); }   // from the palette: a new or existing folder; the tab keeps its page
-  repin(t, url) { if (t.kind !== 'pinned' || !url || url === t.pinnedUrl) return; const old = t.pinnedUrl; t.pinnedUrl = url; this.bookmarks.replaceUrl(old, url); }
+  repin(t, url) { if (t.kind !== 'pinned' || !url || url === t.pinnedUrl) return; const old = t.pinnedUrl; t.pinnedUrl = url; for (const c of this.today) if (c.parentUrl === old) c.parentUrl = url; this.saveToday(); this.bookmarks.replaceUrl(old, url); }
   unpin(id) { this.moveTab(id, null, 0); }
 
   // --- folders ---------------------------------------------------------------------
@@ -907,7 +925,7 @@ export class TabManager {
     const items = [];
     const sel = (p.selectionText || '').trim();
     if (p.linkURL && !isTerminalUrl(p.linkURL)) {
-      items.push({ label: 'Open Link in New Tab', click: () => this.open(p.linkURL, { after: tab, background: true }) });
+      items.push({ label: 'Open Link in New Tab', click: () => this.open(p.linkURL, { after: tab, background: true, parent: this.linkParent(tab) }) });
       items.push({ label: 'Copy Link', click: () => clipboard.writeText(p.linkURL) });
       items.push({ type: 'separator' });
     }
@@ -960,8 +978,8 @@ export class TabManager {
     const a = this.active;
     const h = a?.wc && !a.wc.isDestroyed() ? a.wc.navigationHistory : null;
     return {
-      groups: this.groups.map((g) => ({ name: g.name, icon: g.icon || '', collapsed: this.collapsed(g.name), tabs: g.tabs.map((t) => t.dto()) })),
-      today: this.today.map((t) => t.dto()),
+      groups: this.groups.map((g) => ({ name: g.name, icon: g.icon || '', collapsed: this.collapsed(g.name), tabs: g.tabs.flatMap((t) => [t.dto(), ...this.childrenOf(t).map((c) => ({ ...c.dto(), child: true }))]) })),
+      today: this.today.filter((t) => !this.nested(t)).map((t) => t.dto()),
       activeId: (a?.host || a)?.id ?? null,
       panes: (this.fullscreenTab ? [] : this.visiblePanes()).map((t, i) => { const r = (this.rects || [])[i]; const h = t.wc && !t.wc.isDestroyed() ? t.wc.navigationHistory : null; return r ? { id: t.id, x: r.x, y: r.y - TOOLBAR, w: r.width, h: r.height + TOOLBAR, url: t.url, theme: t.pageBg || t.themeColor || '', canGoBack: !!h?.canGoBack(), canGoForward: !!h?.canGoForward(), focused: t === a,
         agent: t.kind === 'internal' || t.terminal ? '' : t.companionShown ? 'on' : 'off' } : null; }).filter(Boolean),
@@ -1050,6 +1068,7 @@ export class TabManager {
     ipcMain.on('palette-size', (e, h) => { if (fromUI(e)) { this.paletteHeight = Math.max(48, Math.min(600, Math.round(h))); this.layout(); } });
     ipcMain.on('focus-page', (e) => fromUI(e) && this.active?.wc?.focus());
     ipcMain.on('homie:notification', (e, payload) => this.notify(e.sender, payload || {}));
+    ipcMain.on('homie:link-click', (e) => { const t = [...this.tabs.values()].find((x) => x.wc === e.sender); if (t) t.linkClick = Date.now(); e.returnValue = true; });
     ipcMain.on('homie:bg', (e, color) => { const t = [...this.tabs.values()].find((x) => x.wc === e.sender); if (!t || t.pageBg === color) return; t.pageBg = typeof color === 'string' ? color : ''; this.push(); });
     // Arc's canonical split gesture: a sidebar row dropped on the left or right half of a page
     ipcMain.on('row-drag', (e, phase, id) => {

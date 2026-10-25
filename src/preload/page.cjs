@@ -45,6 +45,15 @@ window.addEventListener('message', (e) => {
   }
 });
 
+// A plain click on a link to another host: main hears it before the navigation starts, so a pinned
+// tab can open the link under its pin instead of leaving (main's will-navigate). Sync, so it lands first.
+window.addEventListener('click', (e) => {
+  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const a = e.composedPath().find((n) => n.tagName === 'A' && n.href);
+  if (!a || a.hasAttribute('download')) return;
+  try { const u = new URL(a.href, location.href); if (/^https?:$/.test(u.protocol) && u.hostname !== location.hostname) ipcRenderer.sendSync('homie:link-click'); } catch {}
+}, true);
+
 // A sidebar row dragged over this page: main arms us, we draw Arc's left/right drop halves
 // and report the drop. The chrome view never sees pointer events over a page view.
 let drop = null;

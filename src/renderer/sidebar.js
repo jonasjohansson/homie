@@ -85,7 +85,7 @@ function reconcile(container, tabs, after) {
 }
 
 function inSplit(t) { return (S.panes || []).length > 1 && (S.splitIds || []).includes(t.id); }
-function signature(t) { return [t.kind, t.url, t.label, t.title, t.favicon, t.unread, t.muted, t.loading, t.loaded, t.away, t.id === S.activeId, inSplit(t)].join('\u0001'); }
+function signature(t) { return [t.kind, t.child, t.url, t.label, t.title, t.favicon, t.unread, t.muted, t.loading, t.loaded, t.away, t.id === S.activeId, inSplit(t)].join('\u0001'); }
 
 function update(el, t) {
   const sig = signature(t);
@@ -103,7 +103,7 @@ function update(el, t) {
 
 function row(t) {
   const el = document.createElement('div');
-  el.className = `tab ${t.kind}` + (t.id === S.activeId ? ' active' : '') + (inSplit(t) ? ' split' : '') + (t.loaded ? ' loaded' : '') + (t.loading ? ' loading' : '') + (t.muted ? ' muted' : '') + (t.away ? ' away' : '');
+  el.className = `tab ${t.kind}` + (t.id === S.activeId ? ' active' : '') + (inSplit(t) ? ' split' : '') + (t.loaded ? ' loaded' : '') + (t.loading ? ' loading' : '') + (t.muted ? ' muted' : '') + (t.away ? ' away' : '') + (t.child ? ' child' : '');
   el.dataset.id = t.id; el.dataset.sig = signature(t);
   const ico = document.createElement('span'); ico.className = 'ico';
   if (t.favicon) { const img = document.createElement('img'); img.src = t.favicon; img.onerror = () => { img.replaceWith(letter(t)); }; ico.append(img); } else ico.append(letter(t));
@@ -175,9 +175,10 @@ document.addEventListener('mousedown', (e) => {
     const containers = [...groupsEl.querySelectorAll('section.group')].map((sec) => ({ sec, list: sec, group: sec.dataset.name, head: sec.querySelector('h2') }));
     containers.push({ sec: todaySection, list: todayEl, group: null, head: $('#newTab') });
     for (const c of containers) {
-      const rows = c.sec.classList.contains('collapsed') ? [] : [...c.list.querySelectorAll(':scope > .tab[data-id]')].filter((x) => x !== drag.el && !x.classList.contains('leave'));
+      const shown = c.sec.classList.contains('collapsed') ? [] : [...c.list.querySelectorAll(':scope > .tab[data-id]')].filter((x) => x !== drag.el && !x.classList.contains('leave'));
+      const rows = c.group == null ? shown : shown.filter((x) => !x.classList.contains('child'));   // a pin's index counts pins, not the sub-tabs under it
       rows.forEach((row, i) => { const b = row.getBoundingClientRect(); slots.push({ y: b.top + b.height / 2, list: c.list, group: c.group, index: i, before: row }); });
-      const last = rows[rows.length - 1] || c.head; const b = last.getBoundingClientRect();
+      const last = shown[shown.length - 1] || c.head; const b = last.getBoundingClientRect();
       slots.push({ y: b.bottom + 4, list: c.list, group: c.group, index: rows.length, before: null, end: true });
     }
     let t = slots.find((sl) => y < sl.y) || slots[slots.length - 1];

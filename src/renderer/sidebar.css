@@ -82,6 +82,7 @@ h2 button { margin-left: auto; margin-right: 8px; font-size: 11px; font-weight: 
 
 .tab { height: var(--row); margin: 0 8px var(--pitch); padding: 0 6px 0 10px; display: grid; grid-template-columns: var(--icon) 1fr auto auto; gap: 11px; align-items: center; border-radius: 12px; white-space: nowrap; color: var(--fg-tab); font-weight: 500; }
 .group .tab { margin-left: 24px; padding-left: 10px; }   /* Arc: child highlight starts 24 pt in, favicon at 33.5 pt */
+.group .tab.child { margin-left: 40px; }   /* a link a pin opened, one step further in under it */
 .tab { transition: background-color var(--t-hover) var(--ease-out), height var(--t-row) var(--ease-out), margin var(--t-row) var(--ease-out), opacity var(--t-row) var(--ease-out); }
 .tab:hover { background: var(--hover); }
 .tab.active { background: var(--active); color: var(--fg); }

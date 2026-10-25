@@ -89,7 +89,10 @@ offers to save or update the login (in Homie only, never back to Chrome).
 | double-click a pinned tab | rename |
 
 Popups that need their opener (sign-in windows) open as windows; every other new
-window request becomes a Today tab. Downloads go to `~/Downloads` and show at the
+window request becomes a Today tab. A pinned tab keeps its page: a link to another
+host (a link in a Gmail message, say) opens as a sub-tab under the pin, and its own
+links stay under the same pin; links within the site and sign-in pages load in
+place. Drag a sub-tab out to keep it on its own. Downloads go to `~/Downloads` and show at the
 bottom of the sidebar: click to reveal, double-click to open.
 
 ## Terminal tabs
