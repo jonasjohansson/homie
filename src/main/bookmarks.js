@@ -9,18 +9,25 @@ import path from 'node:path';
 import YAML from 'yaml';
 
 // The Settings page's shared settings, under settings: in this file; a key left out is its default.
+// Timings are words, not milliseconds: TIMINGS says what each word means.
 export const SETTINGS = {
-  switch_ms: 0,              // the sidebar changing style (Cmd+S); 0 is instant
-  reveal_ms: 180,            // the sidebar sliding in at the window's left edge
-  reveal_delay_ms: 0,        // the pointer resting at that edge before it does
-  downloads_delay_ms: 250,   // hovering Downloads before the newest files show
+  switch: 'instant',         // the sidebar changing style (Cmd+S)
+  reveal: 'normal',          // the hidden sidebar sliding in at the window's left edge
+  reveal_wait: 'none',       // the pointer resting at that edge before it does
+  downloads_wait: 'normal',  // hovering Downloads before the newest files show
   pin_links: 'subtab',       // a link leaving a pinned site opens as a 'subtab' under the pin, or a 'today' tab
 };
-const CHOICES = { pin_links: ['subtab', 'today'] };
-function setting(key, v) {
-  const d = SETTINGS[key];
-  if (typeof d === 'number') return Number.isFinite(v) ? Math.max(0, Math.min(2000, Math.round(v))) : d;
-  return CHOICES[key]?.includes(v) ? v : d;
+export const TIMINGS = {
+  switch: { instant: 0, fast: 120, normal: 250, slow: 500 },
+  reveal: { instant: 0, fast: 120, normal: 250, slow: 500 },
+  reveal_wait: { none: 0, short: 150, long: 400 },
+  downloads_wait: { none: 0, short: 120, normal: 250, long: 500 },
+};
+const CHOICES = { ...Object.fromEntries(Object.entries(TIMINGS).map(([k, v]) => [k, Object.keys(v)])), pin_links: ['subtab', 'today'] };
+const OLD_MS = { switch: 'switch_ms', reveal: 'reveal_ms', reveal_wait: 'reveal_delay_ms', downloads_wait: 'downloads_delay_ms' };   // 4.10.0 wrote milliseconds
+function setting(key, v, old) {
+  if (v === undefined && Number.isFinite(old)) return Object.entries(TIMINGS[key]).reduce((a, b) => (Math.abs(b[1] - old) < Math.abs(a[1] - old) ? b : a))[0];   // the nearest word
+  return CHOICES[key]?.includes(v) ? v : SETTINGS[key];
 }
 
 const STARTER = `# Homie — the pinned sidebar. Per group: name, icon (an emoji). Per tab: url (required), label, muted, badge (default true).
@@ -76,7 +83,7 @@ export class Bookmarks {
     this.agents = doc.agents === true;
     this.ask = typeof doc.ask === 'string' && /^[a-z0-9][\w.-]*$/i.test(doc.ask.trim()) ? doc.ask.trim() : '';   // a model name for claude --model, never a flag
     const s = doc.settings && typeof doc.settings === 'object' ? doc.settings : {};
-    this.settings = Object.fromEntries(Object.keys(SETTINGS).map((k) => [k, setting(k, s[k])]));
+    this.settings = Object.fromEntries(Object.keys(SETTINGS).map((k) => [k, setting(k, s[k], s[OLD_MS[k]])]));
     this.tint = typeof doc.tint === 'string' && /^#[0-9a-f]{6}(\s+#[0-9a-f]{6})?$/i.test(doc.tint.trim()) ? doc.tint.trim() : '';   // one colour, or two for a top-to-bottom gradient
     return true;
   }
@@ -109,8 +116,9 @@ export class Bookmarks {
     if (!(key in SETTINGS)) return;
     const v = setting(key, value);
     this.edit((doc) => {
-      if (v === SETTINGS[key]) { if (!doc.hasIn(['settings', key])) return false; doc.deleteIn(['settings', key]); if (!doc.get('settings')?.items?.length) doc.delete('settings'); }
-      else doc.setIn(['settings', key], v);
+      if (OLD_MS[key]) doc.deleteIn(['settings', OLD_MS[key]]);   // the word replaces 4.10.0's milliseconds
+      if (v === SETTINGS[key]) doc.deleteIn(['settings', key]); else doc.setIn(['settings', key], v);
+      if (doc.has('settings') && !doc.get('settings')?.items?.length) doc.delete('settings');
     });
   }
   // a top-level key the page writes (tint, ask, agents); empty or false leaves it out

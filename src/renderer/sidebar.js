@@ -17,7 +17,7 @@ homie.on('state', (s) => {
   const tint = (s.tint || '').split(/\s+/).filter(Boolean);
   if (tint.length) { r.setProperty('--tint-top', tint[0]); r.setProperty('--tint-bottom', tint[1] || tint[0]); } else { r.removeProperty('--tint-top'); r.removeProperty('--tint-bottom'); }
   // Settings' timings; reduced motion keeps the stylesheet's zeros
-  if (s.settings && !matchMedia('(prefers-reduced-motion: reduce)').matches) { r.setProperty('--t-sidebar', s.settings.switch_ms + 'ms'); r.setProperty('--t-reveal', s.settings.reveal_ms + 'ms'); }
+  if (s.timing && !matchMedia('(prefers-reduced-motion: reduce)').matches) r.setProperty('--t-sidebar', s.timing.switch + 'ms');
   document.body.classList.toggle('sidebar-hidden', !RAIL && (s.sidebarMode || 'full') !== 'full');   // the rail docked or nothing: this page draws only the cards
   document.body.classList.toggle('sidebar-rail', !RAIL && s.sidebarMode === 'rail');
   render();
@@ -31,7 +31,20 @@ homie.on('start-rename', (id) => startRename(id));
 homie.on('start-rename-group', (name) => startRenameGroup(name));
 homie.on('row-drag-end', () => { if (endDrag) endDrag(); });   // the page took the drop
 // main says how the rail shows: '' (out of sight), 'float', 'wide' (the whole sidebar, floating), 'docked' or 'docked-out'
-homie.on('rail', (look) => { const b = document.body.classList; b.toggle('in', !!look && look !== 'docked-out'); b.toggle('wide', look === 'wide'); b.toggle('docked', look.startsWith('docked')); if (!look) closeDlPop(); });
+homie.on('rail', (look) => {
+  const b = document.body.classList, was = b.contains('in');
+  b.toggle('in', !!look && look !== 'docked-out'); b.toggle('wide', look === 'wide'); b.toggle('docked', look.startsWith('docked'));
+  if (!look) closeDlPop();
+  if ((look === 'float' || look === 'wide') && !was) slideIn();
+});
+// the slide in at the edge, as an animation of its own: the view was out of sight until now, so a CSS
+// transition on the class would have nothing to start from
+function slideIn() {
+  const ms = S.timing?.reveal ?? 250;
+  if (!ms || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const easing = getComputedStyle(document.documentElement).getPropertyValue('--ease-out').trim() || 'ease-out';
+  document.body.animate([{ transform: 'translateX(-100%)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: ms, easing });
+}
 // with the sidebar hidden, the pointer in the margin left of the page brings up the rail
 // after the pointer has rested there for Settings' reveal delay
 let edgeTimer = null;
@@ -39,7 +52,7 @@ if (!RAIL) {
   document.addEventListener('mousemove', (e) => {
     if (!(S.sidebarHidden && e.clientX < 10 && e.clientY > 48)) { clearTimeout(edgeTimer); edgeTimer = null; return; }
     if (edgeTimer) return;
-    const ms = S.settings?.reveal_delay_ms || 0;
+    const ms = S.timing?.revealWait || 0;
     if (!ms) return homie.send('rail');
     edgeTimer = setTimeout(() => { edgeTimer = null; homie.send('rail'); }, ms);
   });
@@ -244,7 +257,7 @@ const MAG = '<svg width="13" height="13" viewBox="0 0 16 16"><circle cx="7" cy="
 function hoverDl(over) {
   clearTimeout(dlTimer);
   if (RAIL && !document.body.classList.contains('wide')) return;   // the icon rail has no room for it
-  if (over) dlTimer = setTimeout(openDlPop, dlPop.classList.contains('open') ? 0 : S.settings?.downloads_delay_ms ?? 250);
+  if (over) dlTimer = setTimeout(openDlPop, dlPop.classList.contains('open') ? 0 : S.timing?.downloadsWait ?? 250);
   else dlTimer = setTimeout(closeDlPop, 250);
 }
 async function openDlPop() { await fillDlPop(); dlPop.classList.add('open'); }

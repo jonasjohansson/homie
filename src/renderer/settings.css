@@ -22,9 +22,6 @@ button:focus { outline: none; }
 .seg { display: flex; background: var(--field); border-radius: 7px; padding: 2px; }
 .seg button { height: 24px; background: none; border-radius: 5px; color: var(--fg-muted); }
 .seg button.on { background: var(--bg); color: var(--fg); box-shadow: 0 0 0 .5px var(--line), 0 1px 2px rgba(0, 0, 0, .12); }
-.range { display: flex; align-items: center; gap: 10px; }
-.range input { width: 180px; accent-color: var(--on); }
-.range output { width: 64px; text-align: right; font-variant-numeric: tabular-nums; color: var(--fg-muted); }
 .tint { display: flex; gap: 6px; align-items: center; }
 .tint input { width: 34px; height: 28px; border: 0; padding: 0; background: none; cursor: default; }
 .tint input::-webkit-color-swatch-wrapper { padding: 2px; }

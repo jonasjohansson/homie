@@ -3,7 +3,6 @@
 const $ = (s) => document.querySelector(s);
 let D = null;
 const DEFAULT_TINT = matchMedia('(prefers-color-scheme: dark)').matches ? ['#0d0d1f', '#0d0d1f'] : ['#ece8f1', '#e6e0ec'];
-const ms = (v) => (v ? v + ' ms' : 'Instant');
 const send = (key, value) => homie.send('settings-set', key, value);
 
 function value(key) {
@@ -13,7 +12,6 @@ function value(key) {
 
 function render() {
   for (const seg of document.querySelectorAll('.seg')) for (const b of seg.children) b.classList.toggle('on', b.value === value(seg.dataset.key));
-  for (const r of document.querySelectorAll('.range input')) { if (document.activeElement !== r) r.value = value(r.dataset.key); r.nextElementSibling.textContent = ms(Number(r.value)); }
   for (const c of document.querySelectorAll('.switch input')) c.checked = !!value(c.dataset.key);
   const login = $('[data-key=open_at_login]'); login.disabled = !D.packaged;
   $('#loginNote').textContent = D.packaged ? 'Start Homie when you log in.' : 'Only the installed Homie can open at login.';
@@ -24,10 +22,6 @@ function render() {
 }
 
 for (const seg of document.querySelectorAll('.seg')) seg.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) send(seg.dataset.key, b.value); });
-for (const r of document.querySelectorAll('.range input')) {
-  r.addEventListener('input', () => { r.nextElementSibling.textContent = ms(Number(r.value)); });
-  r.addEventListener('change', () => send(r.dataset.key, Number(r.value)));   // written on release, not on every step
-}
 for (const c of document.querySelectorAll('.switch input')) c.addEventListener('change', () => send(c.dataset.key, c.checked));
 const tint = () => { const a = $('#tintTop').value, b = $('#tintBottom').value; send('tint', a === b ? a : `${a} ${b}`); };
 $('#tintTop').addEventListener('change', tint); $('#tintBottom').addEventListener('change', tint);

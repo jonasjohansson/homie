@@ -9,7 +9,7 @@ import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { state, saveState, setOpenAtLogin } from './state.js';
-import { SETTINGS } from './bookmarks.js';
+import { SETTINGS, TIMINGS } from './bookmarks.js';
 import { recordVisit, updateTitle, searchHistory } from './history.js';
 import { TERMINAL_HTML, TERMINAL_PRELOAD, isTerminalUrl } from './terminal.js';
 import { AGENT_PORT } from './agents.js';
@@ -354,7 +354,8 @@ export class TabManager {
     if (this.active && panes.includes(this.active)) { for (const t of panes) if (!t.loaded) t.load(); this.layout(); }
   }
 
-  get switchMs() { return this.bookmarks.settings.switch_ms; }   // Settings: how long the sidebar takes to change style (--t-sidebar)
+  timing(key) { return TIMINGS[key][this.bookmarks.settings[key]] ?? 0; }   // a Settings word in milliseconds
+  get switchMs() { return this.timing('switch'); }   // how long the sidebar takes to change style (--t-sidebar)
   // Move the active page view to its new card over switchMs, in step with the chrome's CSS
   // transition; the chrome paints the tint under the page, so nothing shows through.
   animateLayout() {
@@ -403,6 +404,7 @@ export class TabManager {
     if (this.railShown || !this.sidebarHidden || this.fullscreenTab || !this.win) return;
     this.railShown = true; this.railAway = 0;
     clearTimeout(this.railFade); this.railFade = null;   // the docked rail was still fading: it floats now instead
+    clearTimeout(this.railOff);
     this.layout(); this.raiseOverlays();
     this.rail.setVisible(true); this.railLook(this.sidebarMode === 'peek-full' ? 'wide' : 'float');
     clearInterval(this.railTimer);
@@ -415,7 +417,13 @@ export class TabManager {
   }
   hideRail() {
     if (!this.railShown) return; this.railShown = false; clearInterval(this.railTimer);
-    if (this.railNow !== 'docked' || !this.switchMs) { this.rail.setVisible(false); this.railLook(''); return; }
+    if (this.railNow !== 'docked' || !this.switchMs) {
+      // out of sight in the page first, then the view: a hidden view never takes the change, and would show
+      // its last frame (and keep the class) the next time it comes, so the slide in would not run
+      this.railLook(''); clearTimeout(this.railOff);
+      this.railOff = setTimeout(() => { if (!this.railShown) this.rail.setVisible(false); }, 60);
+      return;
+    }
     // the docked rail fades out with the sidebar's change of style, then goes
     this.railLook('docked-out');
     this.railFade = setTimeout(() => { this.railFade = null; if (!this.railShown) { this.rail.setVisible(false); this.railLook(''); this.layout(); } }, this.switchMs);
@@ -1062,7 +1070,7 @@ export class TabManager {
       sidebarMode: this.sidebarMode,
       tint: this.bookmarks.tint || '',
       askModel: this.bookmarks.ask || 'sonnet',
-      settings: this.bookmarks.settings,
+      timing: { switch: this.timing('switch'), reveal: this.timing('reveal'), revealWait: this.timing('reveal_wait'), downloadsWait: this.timing('downloads_wait') },
     };
   }
 

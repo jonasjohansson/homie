@@ -61,10 +61,10 @@ setting at its default is left out of the file.
 
 ```yaml
 settings:
-  switch_ms: 0             # changing style, Cmd+S (0 is instant)
-  reveal_ms: 180           # the hidden sidebar sliding in at the left edge
-  reveal_delay_ms: 0       # resting at the edge before it comes
-  downloads_delay_ms: 250  # hovering Downloads before the newest files show
+  switch: instant          # changing style, Cmd+S: instant, fast, normal or slow
+  reveal: normal           # the hidden sidebar sliding in at the left edge: the same four
+  reveal_wait: none        # resting at the edge before it comes: none, short or long
+  downloads_wait: normal   # hovering Downloads before the newest files show: none, short, normal or long
   pin_links: subtab        # or today
 ```
 

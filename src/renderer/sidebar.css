@@ -56,8 +56,8 @@ button svg { display: block; }
    the command bar and tab switches are instant, rows fade in or collapse in about 50 ms. */
 /* The curve is Apple's critically damped default spring (SwiftUI .default), sampled; Arc, a Swift app,
    inherits that shape. Durations are the measured settle times, not Apple's 550 ms. */
-:root { --ease-out: linear(0, 0.0576 4.17%, 0.1805 8.33%, 0.3211 12.5%, 0.4556 16.7%, 0.5734 20.8%, 0.6716 25%, 0.7505 29.2%, 0.8126 33.3%, 0.8604 37.5%, 0.8969 41.7%, 0.9243 45.8%, 0.9447 50%, 0.9598 54.2%, 0.9709 58.3%, 0.979 62.5%, 0.9849 66.7%, 0.9892 70.8%, 0.9923 75%, 0.9945 79.2%, 0.9961 83.3%, 0.9972 87.5%, 0.998 91.7%, 0.9986 95.8%, 1); --t-sidebar: 220ms; --t-reveal: 180ms;   /* --t-sidebar is SIDEBAR_MS in tabs.js */ --t-row: 50ms; --t-hover: 80ms; }
-@media (prefers-reduced-motion: reduce) { :root { --t-sidebar: 0ms; --t-reveal: 0ms; --t-row: 0ms; --t-hover: 0ms; } }
+:root { --ease-out: linear(0, 0.0576 4.17%, 0.1805 8.33%, 0.3211 12.5%, 0.4556 16.7%, 0.5734 20.8%, 0.6716 25%, 0.7505 29.2%, 0.8126 33.3%, 0.8604 37.5%, 0.8969 41.7%, 0.9243 45.8%, 0.9447 50%, 0.9598 54.2%, 0.9709 58.3%, 0.979 62.5%, 0.9849 66.7%, 0.9892 70.8%, 0.9923 75%, 0.9945 79.2%, 0.9961 83.3%, 0.9972 87.5%, 0.998 91.7%, 0.9986 95.8%, 1); --t-sidebar: 0ms;   /* Settings' switch timing, set by sidebar.js */ --t-row: 50ms; --t-hover: 80ms; }
+@media (prefers-reduced-motion: reduce) { :root { --t-sidebar: 0ms; --t-row: 0ms; --t-hover: 0ms; } }
 #sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: var(--w); display: flex; flex-direction: column; transition: opacity var(--t-sidebar) var(--ease-out); }
 body.sidebar-hidden #sidebar { opacity: 0; pointer-events: none; }
 #top { height: 48px; flex: none; display: flex; align-items: center; padding-left: 78px; }   /* icon centre at 91 pt, Arc: 90.75 */
@@ -148,7 +148,7 @@ body.dragging { cursor: default; }
 /* --- the rail: the same sidebar, icons only, over the page's left edge while the sidebar is hidden.
    Main shows the view at the edge and says 'in'; the strip slides out from the edge with the sidebar's curve. */
 body.rail { opacity: 0; transform: translateX(-100%); box-shadow: inset -1px 0 0 var(--line); }
-body.rail.in { opacity: 1; transform: none; transition: opacity var(--t-reveal) var(--ease-out), transform var(--t-reveal) var(--ease-out); }   /* slower than Arc's 90 ms: the reveal is a surprise, a toggle is not */
+body.rail.in { opacity: 1; transform: none; }   /* sidebar.js animates the slide in (Settings' reveal timing) */
 body.rail.docked { box-shadow: none; transform: none; transition: opacity var(--t-sidebar) var(--ease-out); }   /* docked it is part of the window: it fades with the change of style, never slides */
 body.rail.wide { box-shadow: inset -1px 0 0 var(--line), 0 0 24px rgba(0, 0, 0, .25); }
 body.rail #sidebar { width: 100%; }
