@@ -50,6 +50,24 @@ Logins, zoom per site, window frame, sidebar width and the Today list stay per
 machine. Extensions install from the Chrome Web Store (Homie menu) and live in
 `Application Support/Homie/Extensions`.
 
+## Settings
+
+Cmd+, opens Settings as a tab: the sidebar's style and its timings (changing style, sliding
+in at the edge, the wait there), where a pinned site's outside links open, the Downloads
+list's hover delay, the window tint, the Ask model, agents, Open at Login and the default
+browser. Everything not marked "this Mac" is written to `bookmarks.yml`, under `settings:`
+or as the top-level `tint:`, `ask:` and `agents:`, so it follows the file to every Mac; a
+setting at its default is left out of the file.
+
+```yaml
+settings:
+  switch_ms: 0             # changing style, Cmd+S (0 is instant)
+  reveal_ms: 180           # the hidden sidebar sliding in at the left edge
+  reveal_delay_ms: 0       # resting at the edge before it comes
+  downloads_delay_ms: 250  # hovering Downloads before the newest files show
+  pin_links: subtab        # or today
+```
+
 ## Passwords
 
 Homie > Import Passwords from Chrome… copies the logins Chrome saved on this Mac, as
@@ -84,7 +102,7 @@ offers to save or update the login (in Homie only, never back to Chrome).
 | Cmd+Shift+C | copy the page address |
 | Cmd+Shift+O | open the page in Chrome |
 | Cmd+S, Cmd+Shift+S | the next sidebar style, as the sidebar button: full, icons only, hidden with the icons at the window's left edge, hidden with the whole sidebar there; drag the full sidebar's edge to resize it, docked or floating |
-| Cmd+, | open bookmarks.yml |
+| Cmd+, | Settings (homie://settings) |
 | right-click a tab | pin, mute, badge, rename, reload, reset, unpin, close |
 | double-click a pinned tab | rename |
 

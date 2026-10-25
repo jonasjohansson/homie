@@ -109,6 +109,8 @@ h2 button { margin-left: auto; margin-right: 8px; font-size: 11px; font-weight: 
 
 #bottom { flex: none; height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px 0 10px; color: #575360; }   /* Arc: 14 pt glyphs at x 17 and 171 of 202, centred 26 pt above the bottom, #575360 */
 #bottom button { height: 28px; min-width: 28px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 7px; color: inherit; border-radius: 6px; transition: background-color var(--t-hover) var(--ease-out); }
+#bottom .left { display: flex; align-items: center; gap: 2px; }
+#gear.active { color: var(--fg); }
 #dlrow .meta { font-size: 11px; }
 #dlrow .meta:empty { display: none; }
 #dlrow .meta.busy, #dlrow.active { color: var(--fg); }
@@ -159,6 +161,7 @@ body.rail:not(.wide) :is(h2, .tab, #newTab) { margin: 0 8px var(--pitch); paddin
 body.rail:not(.wide) :is(.tab, #newTab) { grid-template-columns: var(--icon); position: relative; }
 body.rail:not(.wide) .tab .badge { position: absolute; top: 6px; right: 6px; min-width: 0; width: 7px; height: 7px; padding: 0; font-size: 0; }   /* the count becomes a dot */
 body.rail:not(.wide) #divider { margin: -2px 12px 3px; background: var(--line); }   /* pinned above, Today below */
+body.rail:not(.wide) #bottom .left { flex-direction: column; gap: 4px; }
 body.rail:not(.wide) #bottom { height: auto; flex-direction: column; gap: 4px; padding: 6px 0 10px; }
 
 /* --- the cards: one per pane, toolbar on top, the page view sits over the rest -------------

@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>Settings</title>
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<header>
+  <h1>Settings</h1>
+  <div class="actions"><button id="file">Edit bookmarks.yml</button></div>
+</header>
+
+<section>
+  <h2>Sidebar</h2>
+  <div class="row"><div><b>Style</b><span class="tag">this Mac</span><p>What Cmd+S and the sidebar button step through.</p></div>
+    <div class="seg" data-key="sidebar_mode"><button value="full">Full</button><button value="rail">Icons</button><button value="peek-rail">Hidden, icons</button><button value="peek-full">Hidden, full</button></div></div>
+  <div class="row"><div><b>Changing style</b><p>How long the sidebar takes to change style.</p></div>
+    <div class="range"><input type="range" data-key="switch_ms" min="0" max="600" step="10"><output></output></div></div>
+  <div class="row"><div><b>Slide in at the edge</b><p>How long a hidden sidebar takes to slide in at the window's left edge.</p></div>
+    <div class="range"><input type="range" data-key="reveal_ms" min="0" max="600" step="10"><output></output></div></div>
+  <div class="row"><div><b>Wait at the edge</b><p>How long the pointer rests at the edge before the sidebar comes.</p></div>
+    <div class="range"><input type="range" data-key="reveal_delay_ms" min="0" max="1000" step="50"><output></output></div></div>
+</section>
+
+<section>
+  <h2>Links and downloads</h2>
+  <div class="row"><div><b>A link that leaves a pinned site</b><p>Opens as a tab under the pin, or as a Today tab. Either way the pin keeps its page.</p></div>
+    <div class="seg" data-key="pin_links"><button value="subtab">Under the pin</button><button value="today">In Today</button></div></div>
+  <div class="row"><div><b>Downloads list</b><p>How long you hover the download arrow before the newest files show.</p></div>
+    <div class="range"><input type="range" data-key="downloads_delay_ms" min="0" max="1000" step="50"><output></output></div></div>
+</section>
+
+<section>
+  <h2>Look</h2>
+  <div class="row"><div><b>Window tint</b><p>The colour behind the sidebar and around the pages, top to bottom.</p></div>
+    <div class="tint"><input type="color" id="tintTop"><input type="color" id="tintBottom"><button id="tintReset">Default</button></div></div>
+</section>
+
+<section>
+  <h2>Claude</h2>
+  <div class="row"><div><b>Ask model</b><p>The model for Cmd+J and for a pinned tab's react: rule.</p></div>
+    <div class="seg" data-key="ask"><button value="haiku">Haiku</button><button value="sonnet">Sonnet</button><button value="opus">Opus</button></div></div>
+  <div class="row"><div><b>Agents</b><p>Let Claude Code see and drive the tabs, through Homie's MCP server on 127.0.0.1.</p></div>
+    <label class="switch"><input type="checkbox" data-key="agents"><i></i></label></div>
+</section>
+
+<section>
+  <h2>Homie</h2>
+  <div class="row"><div><b>Open at login</b><span class="tag">this Mac</span><p id="loginNote">Start Homie when you log in.</p></div>
+    <label class="switch"><input type="checkbox" data-key="open_at_login"><i></i></label></div>
+  <div class="row"><div><b>Default browser</b><span class="tag">this Mac</span><p>Links from other apps open as Today tabs.</p></div>
+    <button id="defaultBrowser">Make Homie the default</button></div>
+</section>
+
+<footer>Everything without “this Mac” is shared through <span id="path"></span>, on every Mac that links it.</footer>
+<script src="settings.js"></script>
+</body>
+</html>

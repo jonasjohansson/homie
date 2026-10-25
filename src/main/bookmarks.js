@@ -8,6 +8,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import YAML from 'yaml';
 
+// The Settings page's shared settings, under settings: in this file; a key left out is its default.
+export const SETTINGS = {
+  switch_ms: 0,              // the sidebar changing style (Cmd+S); 0 is instant
+  reveal_ms: 180,            // the sidebar sliding in at the window's left edge
+  reveal_delay_ms: 0,        // the pointer resting at that edge before it does
+  downloads_delay_ms: 250,   // hovering Downloads before the newest files show
+  pin_links: 'subtab',       // a link leaving a pinned site opens as a 'subtab' under the pin, or a 'today' tab
+};
+const CHOICES = { pin_links: ['subtab', 'today'] };
+function setting(key, v) {
+  const d = SETTINGS[key];
+  if (typeof d === 'number') return Number.isFinite(v) ? Math.max(0, Math.min(2000, Math.round(v))) : d;
+  return CHOICES[key]?.includes(v) ? v : d;
+}
+
 const STARTER = `# Homie — the pinned sidebar. Per group: name, icon (an emoji). Per tab: url (required), label, muted, badge (default true).
 # A url of terminal:~/some/folder is a shell in that folder; run: types a command there, like run: claude
 # react: on a tab is a rule Claude follows when its unread count goes up, shown as a notification
@@ -31,6 +46,7 @@ export class Bookmarks {
     this.tint = '';
     this.agents = false;
     this.ask = '';
+    this.settings = { ...SETTINGS };
     if (!fs.existsSync(this.path)) {
       fs.mkdirSync(path.dirname(this.path), { recursive: true });
       fs.writeFileSync(this.path, STARTER);
@@ -59,6 +75,8 @@ export class Bookmarks {
     this.groups = groups;
     this.agents = doc.agents === true;
     this.ask = typeof doc.ask === 'string' && /^[a-z0-9][\w.-]*$/i.test(doc.ask.trim()) ? doc.ask.trim() : '';   // a model name for claude --model, never a flag
+    const s = doc.settings && typeof doc.settings === 'object' ? doc.settings : {};
+    this.settings = Object.fromEntries(Object.keys(SETTINGS).map((k) => [k, setting(k, s[k])]));
     this.tint = typeof doc.tint === 'string' && /^#[0-9a-f]{6}(\s+#[0-9a-f]{6})?$/i.test(doc.tint.trim()) ? doc.tint.trim() : '';   // one colour, or two for a top-to-bottom gradient
     return true;
   }
@@ -84,6 +102,20 @@ export class Bookmarks {
     this.ownWriteUntil = Date.now() + 1500;
     fs.writeFileSync(this.path, doc.toString({ lineWidth: 0 }));
     if (this.read()) this.onChange();
+  }
+
+  // a shared setting from the Settings page: written under settings:, or dropped when it is the default
+  setSetting(key, value) {
+    if (!(key in SETTINGS)) return;
+    const v = setting(key, value);
+    this.edit((doc) => {
+      if (v === SETTINGS[key]) { if (!doc.hasIn(['settings', key])) return false; doc.deleteIn(['settings', key]); if (!doc.get('settings')?.items?.length) doc.delete('settings'); }
+      else doc.setIn(['settings', key], v);
+    });
+  }
+  // a top-level key the page writes (tint, ask, agents); empty or false leaves it out
+  setTop(key, value) {
+    this.edit((doc) => { if (value === '' || value === false || value == null) { if (!doc.has(key)) return false; doc.delete(key); } else doc.set(key, value); });
   }
 
   findTab(doc, url) {

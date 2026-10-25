@@ -8,7 +8,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { state, saveState } from './state.js';
+import { state, saveState, setOpenAtLogin } from './state.js';
+import { SETTINGS } from './bookmarks.js';
 import { recordVisit, updateTitle, searchHistory } from './history.js';
 import { TERMINAL_HTML, TERMINAL_PRELOAD, isTerminalUrl } from './terminal.js';
 import { AGENT_PORT } from './agents.js';
@@ -26,7 +27,6 @@ const RAIL_W = 52;   // the rail: the sidebar's icons alone, a 36 pt pill and 8 
 // sidebar, the rail docked beside the page, then nothing docked and the rail or the full sidebar
 // floating over the page while the pointer is at the window's left edge
 const SIDEBAR_MODES = ['full', 'rail', 'peek-rail', 'peek-full'];
-const SIDEBAR_MS = 220;   // Arc settles in 60 to 90 ms; slower reads calmer when the sidebar changes style (--t-sidebar)
 const STAGGER_MS = 600;
 // a terminal row's favicon: its own dark tile, so it reads on the light and the dark sidebar
 const TERMINAL_ICON = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" rx="3.5" fill="#282c34"/><path d="M4.5 5l3 3-3 3M8.5 11h3" fill="none" stroke="#c8ccd4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
@@ -354,11 +354,13 @@ export class TabManager {
     if (this.active && panes.includes(this.active)) { for (const t of panes) if (!t.loaded) t.load(); this.layout(); }
   }
 
-  // Move the active page view to its new card over SIDEBAR_MS, in step with the chrome's CSS
+  get switchMs() { return this.bookmarks.settings.switch_ms; }   // Settings: how long the sidebar takes to change style (--t-sidebar)
+  // Move the active page view to its new card over switchMs, in step with the chrome's CSS
   // transition; the chrome paints the tint under the page, so nothing shows through.
   animateLayout() {
     const panes = this.visiblePanes().filter((t) => t.loaded);
-    if (!panes.length || nativeTheme.prefersReducedMotion) return this.layout();
+    const ms = this.switchMs;
+    if (!panes.length || nativeTheme.prefersReducedMotion || !ms) return this.layout();
     const froms = panes.map((t) => t.view.getBounds());
     this.layout();
     const tos = panes.map((t) => t.view.getBounds());
@@ -368,7 +370,7 @@ export class TabManager {
     const K = [0, .0576, .1805, .3211, .4556, .5734, .6716, .7505, .8126, .8604, .8969, .9243, .9447, .9598, .9709, .979, .9849, .9892, .9923, .9945, .9961, .9972, .998, .9986, 1];
     const ease = (p) => { const i = Math.min(K.length - 2, Math.floor(p * (K.length - 1))); const f = p * (K.length - 1) - i; return K[i] + (K[i + 1] - K[i]) * f; };
     this.animTimer = setInterval(() => {
-      const p = Math.min(1, (Date.now() - t0) / SIDEBAR_MS), e = ease(p);
+      const p = Math.min(1, (Date.now() - t0) / ms), e = ease(p);
       panes.forEach((t, i) => { if (!t.loaded) return; const from = froms[i], to = tos[i]; t.view.setBounds({ x: Math.round(from.x + (to.x - from.x) * e), y: to.y, width: Math.round(from.width + (to.width - from.width) * e), height: to.height }); });
       if (p >= 1) { clearInterval(this.animTimer); this.layout(); }
     }, 8);
@@ -413,10 +415,10 @@ export class TabManager {
   }
   hideRail() {
     if (!this.railShown) return; this.railShown = false; clearInterval(this.railTimer);
-    if (this.railNow !== 'docked') { this.rail.setVisible(false); this.railLook(''); return; }
+    if (this.railNow !== 'docked' || !this.switchMs) { this.rail.setVisible(false); this.railLook(''); return; }
     // the docked rail fades out with the sidebar's change of style, then goes
     this.railLook('docked-out');
-    this.railFade = setTimeout(() => { this.railFade = null; if (!this.railShown) { this.rail.setVisible(false); this.railLook(''); this.layout(); } }, SIDEBAR_MS);
+    this.railFade = setTimeout(() => { this.railFade = null; if (!this.railShown) { this.rail.setVisible(false); this.railLook(''); this.layout(); } }, this.switchMs);
   }
   railLook(look) { this.railNow = look; this.rail.webContents.send('rail', look); }   // '' out of sight, 'float', 'wide' (the whole sidebar, floating), 'docked' or 'docked-out' (fading)
   // a menu the rail asks for opens at the rail's offset and holds the rail up until it closes
@@ -495,7 +497,7 @@ export class TabManager {
       if (tab.kind !== 'pinned' || !click || Date.now() - click > 1000 || !e.isMainFrame || !/^https?:/i.test(e.url)) return;
       if (sameHost(e.url, tab.url) || sameHost(e.url, tab.pinnedUrl) || isAuthHost(e.url)) return;
       e.preventDefault();
-      this.open(e.url, { after: tab, parent: tab.pinnedUrl });
+      this.open(e.url, { after: tab, parent: this.linkParent(tab) });
     });
     wc.on('render-process-gone', (_e, d) => { if (d.reason !== 'clean-exit') { tab.title = 'Crashed: ' + tab.title; this.push(); } });
     wc.on('enter-html-full-screen', () => { this.fullscreenTab = tab; this.layout(); });
@@ -565,15 +567,20 @@ export class TabManager {
       if (first) this.activate(first.id);
     }
     this.badgesChanged();
+    this.win?.setBackgroundColor(this.tintColor());   // the tint may have changed (Settings, or the file)
     this.push();
+    this.pushSettings();
   }
 
   allPinned() { return this.groups.flatMap((g) => g.tabs); }
   // a pin's sub-tabs are Today tabs shown under it; one whose pin is gone shows in Today again
   childrenOf(p) { return this.today.filter((t) => t.parentUrl && t.parentUrl === p.pinnedUrl); }
   nested(t) { return !!t.parentUrl && this.allPinned().some((p) => p.pinnedUrl === t.parentUrl); }
-  linkParent(tab) { return tab.kind === 'pinned' ? tab.pinnedUrl : tab.kind === 'today' ? tab.parentUrl : null; }   // a sub-tab's links stay under the same pin
-  ordered() { return [...this.allPinned().flatMap((p) => [p, ...this.childrenOf(p)]), ...this.today.filter((t) => !this.nested(t)), ...(this.downloadsTab ? [this.downloadsTab] : [])]; }
+  linkParent(tab) {   // a sub-tab's links stay under the same pin; Settings can send them all to Today instead
+    if (this.bookmarks.settings.pin_links !== 'subtab') return null;
+    return tab.kind === 'pinned' ? tab.pinnedUrl : tab.kind === 'today' ? tab.parentUrl : null;
+  }
+  ordered() { return [...this.allPinned().flatMap((p) => [p, ...this.childrenOf(p)]), ...this.today.filter((t) => !this.nested(t)), ...[this.downloadsTab, this.settingsTab].filter(Boolean)]; }
 
   showDownloads() {
     if (!this.downloadsTab) {
@@ -582,6 +589,31 @@ export class TabManager {
     }
     this.focus();
     this.activate(this.downloadsTab.id);
+  }
+
+  // --- Settings: a page like Downloads; shared settings go to bookmarks.yml, the rest stay on this Mac ---
+  showSettings() {
+    if (!this.settingsTab) {
+      this.settingsTab = new Tab(this, { kind: 'internal', url: 'homie://settings', label: 'Settings', title: 'Settings', page: path.join(__dirname, '..', 'renderer', 'settings.html') });
+      this.tabs.set(this.settingsTab.id, this.settingsTab);
+    }
+    this.focus();
+    this.activate(this.settingsTab.id);
+  }
+  settingsData() {
+    const b = this.bookmarks;
+    return { settings: b.settings, defaults: SETTINGS, tint: b.tint, ask: b.ask || 'sonnet', agents: b.agents, sidebarMode: this.sidebarMode,
+      openAtLogin: app.isPackaged && app.getLoginItemSettings().openAtLogin, packaged: app.isPackaged, path: b.realPath };
+  }
+  pushSettings() { const wc = this.settingsTab?.wc; if (wc && !wc.isDestroyed()) wc.send('settings', this.settingsData()); }
+  setSetting(key, value) {
+    if (key in SETTINGS) return this.bookmarks.setSetting(key, value);
+    if (key === 'tint') return this.bookmarks.setTop('tint', /^#[0-9a-f]{6}(\s+#[0-9a-f]{6})?$/i.test(String(value)) ? String(value) : '');
+    if (key === 'ask') return this.bookmarks.setTop('ask', ['haiku', 'opus'].includes(value) ? value : '');   // sonnet is the default
+    if (key === 'agents') return this.bookmarks.setTop('agents', value === true);
+    if (key === 'sidebar_mode') return this.setSidebarMode(value);
+    if (key === 'open_at_login') { setOpenAtLogin(!!value); return this.pushSettings(); }
+    if (key === 'default_browser') { app.setAsDefaultProtocolClient('http'); app.setAsDefaultProtocolClient('https'); }
   }
 
   downloadContextMenu(r, x, y, act) {
@@ -649,6 +681,8 @@ export class TabManager {
   navigate(text, { newTab = false, split = false } = {}) {
     const url = resolveInput(text);
     if (!url) return;
+    if (url === 'homie://settings') return this.showSettings();   // Homie's own pages by address, as Chrome's chrome://
+    if (url === 'homie://downloads') return this.showDownloads();
     if (split) { const t = this.open(url, { background: true }); this.splitWith(t.id); return; }
     const pin = this.allPinned().find((p) => p.pinnedUrl === url);   // Arc: a pinned address switches to the pin
     if (pin && (newTab || this.active !== pin)) return this.activate(pin.id);
@@ -760,9 +794,11 @@ export class TabManager {
     Menu.buildFromTemplate(items).popup(this.popupAt(e, x, y));
   }
 
-  toggleSidebar() {   // the next of the four states; layout first so the snapshot carries the new pane rects
-    state.sidebarMode = SIDEBAR_MODES[(SIDEBAR_MODES.indexOf(this.sidebarMode) + 1) % SIDEBAR_MODES.length]; saveState();
-    this.hideRail(); this.animateLayout(); this.push(true);
+  toggleSidebar() { this.setSidebarMode(SIDEBAR_MODES[(SIDEBAR_MODES.indexOf(this.sidebarMode) + 1) % SIDEBAR_MODES.length]); }   // the next of the four
+  setSidebarMode(mode) {   // layout first so the snapshot carries the new pane rects
+    if (!SIDEBAR_MODES.includes(mode) || mode === this.sidebarMode) return;
+    state.sidebarMode = mode; saveState();
+    this.hideRail(); this.animateLayout(); this.push(true); this.pushSettings();
   }
   setSidebarWidth(w) { state.sidebarWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w))); saveState(); this.layout(); }
 
@@ -1020,11 +1056,13 @@ export class TabManager {
       canGoBack: !!h?.canGoBack(), canGoForward: !!h?.canGoForward(),
       downloads: this.downloads?.summary() || null,
       downloadsActive: !!this.downloadsTab && a === this.downloadsTab,
+      settingsActive: !!this.settingsTab && a === this.settingsTab,
       sidebarWidth: state.sidebarWidth,
       sidebarHidden: this.sidebarHidden,
       sidebarMode: this.sidebarMode,
       tint: this.bookmarks.tint || '',
       askModel: this.bookmarks.ask || 'sonnet',
+      settings: this.bookmarks.settings,
     };
   }
 
@@ -1093,6 +1131,11 @@ export class TabManager {
       else { this.sidebarDragging = false; if (floating) this.railHold = false; this.setSidebarWidth(width); this.push(); }
     });
     ipcMain.on('show-downloads', (e) => fromUI(e) && this.showDownloads());
+    ipcMain.on('show-settings', (e) => fromUI(e) && this.showSettings());
+    const fromSettings = (e) => e.sender === this.settingsTab?.wc;
+    ipcMain.handle('settings-get', (e) => (fromSettings(e) ? this.settingsData() : null));
+    ipcMain.on('settings-set', (e, key, value) => { if (fromSettings(e)) this.setSetting(String(key), value); });
+    ipcMain.on('settings-file', (e) => { if (fromSettings(e)) shell.openPath(this.bookmarks.realPath); });
     ipcMain.on('toggle-sidebar', (e) => fromUI(e) && this.toggleSidebar());
     ipcMain.on('rail', (e) => e.sender === this.sidebar?.webContents && this.showRail());
     ipcMain.on('palette', (e, mode, arg) => fromUI(e) && this.showPalette(mode, arg));
