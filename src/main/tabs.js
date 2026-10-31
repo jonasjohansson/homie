@@ -513,9 +513,11 @@ export class TabManager {
     wc.setWindowOpenHandler(({ url, disposition, features }) => {
       if (isTerminalUrl(url)) return { action: 'deny' };   // a page cannot open a shell
       if (disposition === 'new-window' && features) {
-        // a real popup (OAuth, "open in window"); keep it a window so window.opener works
+        // a real popup (OAuth, "open in window", a Messenger call); keep it a window so window.opener works.
+        // Sandboxed like its opener or not at all: a mismatch makes window.open return null, and a page
+        // that opens a blank popup and then points it somewhere (Messenger's calls) is left with a white window.
         return { action: 'allow', overrideBrowserWindowOptions: { parent: this.win, autoHideMenuBar: true,
-          webPreferences: { preload: PAGE_PRELOAD, sandbox: true, contextIsolation: true, partition: 'persist:homie' } } };
+          webPreferences: { preload: PAGE_PRELOAD, sandbox: false, contextIsolation: true, nodeIntegration: false, partition: 'persist:homie' } } };
       }
       // Arc keeps a pinned app inside its tab: a _blank link to the same host, or to a sign-in
       // host (Google's "Sign in" on the logged-out landing page is one), loads in place. Any other
